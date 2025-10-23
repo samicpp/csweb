@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>csweb</AssemblyName>
+    <LangVersion>preview</LangVersion>
+    <RootNamespace>Samicpp.Web</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- <ProjectReference Include="../dotnet-http/http/dotnet-http.csproj" /> -->
+    <ProjectReference Include="../dotnet-http/dotnet-http.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>csweb-root</AssemblyName>
+    <LangVersion>preview</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- <ProjectReference Include="./dotnet-http/http/dotnet-http.csproj" /> -->
+    <ProjectReference Include="web/csweb.csproj" />
+  </ItemGroup>
+
+</Project>
