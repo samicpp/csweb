@@ -43,7 +43,7 @@ public class TcpServer(IPEndPoint address)
                 using Http1Socket socket = new(new TcpSocket(new(shandler, ownsSocket: true)));
 
                 var client = socket.Client;
-                
+
                 try
                 {
                     while (!client.HeadersComplete) client = await socket.ReadClientAsync();
@@ -93,7 +93,7 @@ public class TcpServer(IPEndPoint address)
 public class O9Server(IPEndPoint address)
 {
     public IPEndPoint address = address;
-    public delegate Task Handler(Http09Socket socket);
+    public delegate Task Handler(IDualHttpSocket socket);
 
     public async Task Serve(Handler handler)
     {

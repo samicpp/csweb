@@ -40,7 +40,7 @@ public class Program
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr);
             O9Server tcp = new(address);
-            tasks.Add(tcp.Serve(Funni));
+            tasks.Add(tcp.Serve(Handler));
 
             Console.WriteLine($"HTTP/0.9 serving on http://{address}");
         }
@@ -54,23 +54,45 @@ public class Program
         Console.WriteLine("server done");
     }
 
-    public static async Task Handler(IDualHttpSocket conn)
+    public static async Task Handler(IAsyncHttpSocket conn)
     {
         try
         {
             var client = conn.Client;
             Console.WriteLine("connection established using " + client.Version);
 
+            Console.WriteLine("\x1b[38;2;52;128;235m");
+            // Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine("IHttpClient {");
             Console.WriteLine($"   IsValid: {client.IsValid}");
             Console.WriteLine($"   Host: {client.Host}");
             Console.WriteLine($"   Method: {client.Method}");
-            Console.WriteLine($"   Path: {client.Path}");
+            Console.WriteLine($"   Path: {client.Path.Trim()}");
             Console.WriteLine($"   Version: {client.Version}");
             Console.WriteLine($"   HeadersComplete: {client.HeadersComplete}");
             Console.WriteLine($"   BodyComplete: {client.BodyComplete}");
+            Console.WriteLine($"   Headers.Count: {client.Headers.Count}");
             Console.WriteLine("}");
+            Console.ResetColor();
 
+            Console.WriteLine("\x1b[38;2;52;177;235m");
+            // Console.ForegroundColor = ConsoleColor.DarkCyan;
+            if (client.Headers.Count <= 0) Console.WriteLine("IHttpClient.Headers {}");
+            else
+            {
+                Console.WriteLine("IHttpClient.Headers {");
+                foreach (var (header, vs) in client.Headers)
+                {
+                    Console.Write($"   {header}: [ ");
+                    foreach (var value in vs) Console.Write($"{value}, ");
+                    Console.WriteLine("]");
+                }
+                Console.WriteLine("}");
+            }
+            Console.ResetColor();
+            
+
+            conn.SetHeader("Content-Type", "text/plain");
             await conn.CloseAsync("angry bord");
         }
         catch (Exception e)
@@ -83,28 +105,28 @@ public class Program
         }
     }
 
-    public static async Task Funni(Http09Socket conn)
-    {
-        try
-        {
-            var client = (Http09Client)conn.Client;
-            Console.WriteLine("connection established using " + client.version);
+    // public static async Task Funni(Http09Socket conn)
+    // {
+    //     try
+    //     {
+    //         var client = (Http09Client)conn.Client;
+    //         Console.WriteLine("connection established using " + client.version);
 
-            Console.WriteLine("Http09Client {");
-            Console.WriteLine($"   method: {client.method}");
-            Console.WriteLine($"   path: {client.path.Trim()}");
-            Console.WriteLine($"   version: {client.version}");
-            Console.WriteLine("}");
+    //         Console.WriteLine("Http09Client {");
+    //         Console.WriteLine($"   method: {client.method}");
+    //         Console.WriteLine($"   path: {client.path.Trim()}");
+    //         Console.WriteLine($"   version: {client.version}");
+    //         Console.WriteLine("}");
 
-            await conn.CloseAsync("angry bord");
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-        }
-        finally
-        {
-            await conn.DisposeAsync();
-        }
-    }
+    //         await conn.CloseAsync("angry bord");
+    //     }
+    //     catch (Exception e)
+    //     {
+    //         Console.WriteLine(e);
+    //     }
+    //     finally
+    //     {
+    //         await conn.DisposeAsync();
+    //     }
+    // }
 }
