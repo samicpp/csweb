@@ -3,6 +3,7 @@ namespace Samicpp.Web;
 using Samicpp.Http;
 using Samicpp.Http.Http1;
 using Samicpp.Http.Http2;
+using Samicpp.Http.Http09;
 
 using System;
 using System.Net;
@@ -23,6 +24,7 @@ public class TcpServer(IPEndPoint address)
 {
     public IPEndPoint address = address;
     public delegate Task Handler(IDualHttpSocket socket);
+    public bool h2c = true;
 
     public async Task Serve(Handler handler)
     {
@@ -40,11 +42,20 @@ public class TcpServer(IPEndPoint address)
             {
                 using Http1Socket socket = new(new TcpSocket(new(shandler, ownsSocket: true)));
 
-                var client = await socket.ReadClientAsync();
-                while (!client.HeadersComplete) client = await socket.ReadClientAsync();
+                var client = socket.Client;
+                
+                try
+                {
+                    while (!client.HeadersComplete) client = await socket.ReadClientAsync();
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine("failed to read client");
+                    Console.WriteLine(e);
+                }
 
 
-                if (client.Headers.TryGetValue("upgrade", out List<string> up) && up[0] == "h2c")
+                if (h2c && client.Headers.TryGetValue("upgrade", out List<string> up) && up[0] == "h2c")
                 {
                     using var h2c = await socket.H2CAsync();
 
@@ -74,6 +85,35 @@ public class TcpServer(IPEndPoint address)
                     await handler(socket);
                 }
 
+            });
+        }
+    }
+}
+
+public class O9Server(IPEndPoint address)
+{
+    public IPEndPoint address = address;
+    public delegate Task Handler(Http09Socket socket);
+
+    public async Task Serve(Handler handler)
+    {
+        using Socket listener = new(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+
+        listener.Bind(address);
+        listener.Listen(10);
+
+        while (true)
+        {
+            var shandler = await listener.AcceptAsync();
+            Console.WriteLine($"\e[32m{shandler.RemoteEndPoint}\e[0m");
+
+            var _ = Task.Run(async () =>
+            {
+                using Http09Socket socket = new(new TcpSocket(new(shandler, ownsSocket: true)));
+
+                var client = await socket.ReadClientAsync();
+
+                await handler(socket);
             });
         }
     }
