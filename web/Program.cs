@@ -12,11 +12,13 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
 using Samicpp.Http.Http09;
+using System.Diagnostics;
 
 public class Program
 {
     readonly static IConfigurationRoot config = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
 
+    static Handlers hands;
     public static async Task Main()
     {
         var addrs = config["address"].Split(";");
@@ -31,7 +33,7 @@ public class Program
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr);
             TcpServer tcp = new(address);
-            tasks.Add(tcp.Serve(Handler));
+            tasks.Add(tcp.Serve(Wrapper));
 
             Console.WriteLine($"HTTP/1.1 (h2c) serving on http://{address}");
         }
@@ -40,22 +42,26 @@ public class Program
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr);
             O9Server tcp = new(address);
-            tasks.Add(tcp.Serve(Handler));
+            tasks.Add(tcp.Serve(Wrapper));
 
             Console.WriteLine($"HTTP/0.9 serving on http://{address}");
         }
-        
+
 
         // O9Server test = new(IPEndPoint.Parse("0.0.0.0:3000"));
         // tasks.Add(test.Serve(Funni));
+
+
+        hands = new(config, config["serve-dir"]);
 
         foreach (var task in tasks) await task;
 
         Console.WriteLine("server done");
     }
 
-    public static async Task Handler(IAsyncHttpSocket conn)
+    public static async Task Wrapper(IDualHttpSocket conn)
     {
+        var sw = Stopwatch.StartNew();
         try
         {
             var client = conn.Client;
@@ -90,10 +96,9 @@ public class Program
                 Console.WriteLine("}");
             }
             Console.ResetColor();
-            
 
-            conn.SetHeader("Content-Type", "text/plain");
-            await conn.CloseAsync("angry bord");
+
+            await hands.Entry(conn);
         }
         catch (Exception e)
         {
@@ -101,7 +106,10 @@ public class Program
         }
         finally
         {
-            await conn.DisposeAsync();
+            sw.Stop();
+            Console.Write("\x1b[38;2;245;182;66m");
+            Console.WriteLine($"request finished after {((float)sw.Elapsed.Microseconds)/1_000}ms\x1b[0m");
+            // await conn.DisposeAsync();
         }
     }
 
