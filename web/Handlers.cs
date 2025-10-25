@@ -113,9 +113,11 @@ public class Handlers(IConfigurationRoot config, string baseDir)
         // TODO: files over 500mb need to be streamed
 
         // byte[] bytes = File.ReadAllBytes(path);
+        await socket.CloseAsync("file");
     }
     public async Task DirectoryHandler(IDualHttpSocket socket, DirectoryInfo info, string path)
     {
         // string[] files = Directory.GetFiles(path);
+        await socket.CloseAsync("directory");
     }
 }
