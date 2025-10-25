@@ -8,15 +8,22 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Samicpp.Http;
 using System.Linq;
+using System.Text.Json;
 
-public class Handlers(IConfigurationRoot config, string baseDir)
+public class Handlers(IConfigurationRoot appconfig, string baseDir)
 {
     readonly string baseDir = baseDir;
-    readonly IConfigurationRoot config = config;
+    readonly IConfigurationRoot appconfig = appconfig;
     readonly Regex remove1 = new(@"(\?.*$)|(\#.*$)|(\:.*$)", RegexOptions.Compiled);
     readonly Regex remove2 = new(@"\/\.{1,2}(?=\/|$)", RegexOptions.Compiled);
     readonly Regex collapse = new(@"\/+", RegexOptions.Compiled);
     readonly Regex remove3 = new(@"/$", RegexOptions.Compiled);
+
+    DateTime configTime;
+    Dictionary<string, Dictionary<string, string>> config = new()
+    {
+        { "default", new() { { "dir", "." } } }
+    };
 
     string CleanPath(string path)
     {
@@ -56,6 +63,38 @@ public class Handlers(IConfigurationRoot config, string baseDir)
         }
 
         string extra = "";
+        string fullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{socket.Client.Path}";
+
+        FileInfo cinfo = new($"{baseDir}/routes.json");
+        if (cinfo.Exists && cinfo.LastWriteTime != configTime)
+        {
+            configTime = cinfo.LastWriteTime;
+            var text = await File.ReadAllBytesAsync($"{baseDir}/routes.json");
+            // Console.WriteLine("read routes.json");
+            // Console.WriteLine(text);
+            try
+            {
+                config = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(text);
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("invalid routes config file");
+            }
+        }
+
+        bool cmatch = false;
+        foreach (var (k, v) in config)
+        {
+            if (k == "default") continue;
+            if (fullhost.StartsWith(k, StringComparison.CurrentCultureIgnoreCase))
+            {
+                extra = v.GetValueOrDefault("dir") ?? extra;
+                cmatch = true;
+                break;
+            }
+        }
+        if (!cmatch && config.TryGetValue("default", out var def)) extra = def.GetValueOrDefault("dir") ?? extra;
+
         string rawFullPath = $"{baseDir}/{extra}/{socket.Client.Path.Trim()}";
         var fullPath = Path.GetFullPath(CleanPath(rawFullPath));
 

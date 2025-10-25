@@ -57,5 +57,5 @@ nunit-*.xml
 
 
 # custom
-/public/bigfile.bin
+/public/0/bigfile.bin
 /ssl
