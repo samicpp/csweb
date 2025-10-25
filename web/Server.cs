@@ -25,7 +25,7 @@ public class TcpSocket(NetworkStream stream) : ADualSocket
 public class TlsSocket(SslStream stream) : ADualSocket
 {
     override protected SslStream Stream { get { return stream; } }
-    override public bool IsSecure { get { return false; } }
+    override public bool IsSecure { get { return true; } }
 }
 
 public class H2CServer(IPEndPoint address)

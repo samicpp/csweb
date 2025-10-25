@@ -22,6 +22,7 @@ public class Program
     static Handlers hands;
     public static async Task Main()
     {
+        var sw = Stopwatch.StartNew();
         var addrs = config["h2c-address"].Split(";");
         var O9addrs = config["09-address"].Split(";");
         var h2addrs = config["h2-address"].Split(";");
@@ -73,6 +74,47 @@ public class Program
 
         // O9Server test = new(IPEndPoint.Parse("0.0.0.0:3000"));
         // tasks.Add(test.Serve(Funni));
+        // Console.WriteLine("stopwatch freq " + Stopwatch.Frequency);
+
+        Console.CancelKeyPress += (sender, e) =>
+        {
+            Console.WriteLine("SIGINT received");
+            sw.Stop();
+            long nanos = sw.ElapsedTicks * (1_000_000_000 / Stopwatch.Frequency);
+            int micros = (int)(nanos / 1000);
+            int milis = micros / 1000;
+            int secs = milis / 1000;
+            int mins = secs / 60;
+            int hours = mins / 60;
+
+            Console.Write("\x1b[38;2;66;245;245m");
+            Console.Write($"program finished after ");
+
+            if (hours > 0)
+            {
+                Console.Write($"{hours}h ");
+            }
+            if (mins > 0)
+            {
+                Console.Write($"{mins % 60}m ");
+            }
+            if (secs > 0)
+            {
+                Console.Write($"{secs % 60}s ");
+            }
+            if (milis > 0)
+            {
+                Console.Write($"{milis % 1000}ms ");
+            }
+            Console.WriteLine($"\x1b[38;2;117;117;117m{micros % 1000}us {nanos % 1000}ns\e[0m");
+            
+            
+
+
+            
+
+            Environment.Exit(0);
+        };
 
 
         hands = new(config, config["serve-dir"]);
@@ -103,6 +145,8 @@ public class Program
             Console.WriteLine($"   HeadersComplete: {client.HeadersComplete}");
             Console.WriteLine($"   BodyComplete: {client.BodyComplete}");
             Console.WriteLine($"   Headers.Count: {client.Headers.Count}");
+            Console.WriteLine($"   Scheme: {(conn.IsHttps ? "https" : "http")}");
+            Console.WriteLine($"   Secure: {conn.IsHttps}");
             Console.WriteLine("}");
             Console.ResetColor();
 
@@ -135,7 +179,7 @@ public class Program
         {
             sw.Stop();
             Console.Write("\x1b[38;2;245;182;66m");
-            Console.WriteLine($"request finished after {((float)sw.Elapsed.Microseconds)/1_000}ms\x1b[0m");
+            Console.WriteLine($"request finished after {sw.ElapsedTicks * (1_000_000.0 / Stopwatch.Frequency) / 1_000}ms\x1b[0m");
             // await conn.DisposeAsync();
         }
     }

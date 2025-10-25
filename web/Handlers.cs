@@ -208,10 +208,14 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             socket.StatusMessage = "No Content";
             await socket.CloseAsync();
         }
+        else if(name.EndsWith(".redirect") || name.EndsWith(".link") || name.Contains(".var."))
+        {
+            string utext = await File.ReadAllTextAsync(path);
+        }
         else
         {
             socket.SetHeader("Content-Type", dmt);
-            byte[] bytes = File.ReadAllBytes(path);
+            byte[] bytes = await File.ReadAllBytesAsync(path);
             await socket.CloseAsync(bytes);
         }
     }
