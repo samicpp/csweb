@@ -58,3 +58,4 @@ nunit-*.xml
 
 # custom
 /public/bigfile.bin
+/ssl

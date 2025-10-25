@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
 using Samicpp.Http.Http09;
 using System.Diagnostics;
+using System.Security.Cryptography.X509Certificates;
 
 public class Program
 {
@@ -24,6 +25,9 @@ public class Program
         var addrs = config["h2c-address"].Split(";");
         var O9addrs = config["09-address"].Split(";");
         var h2addrs = config["h2-address"].Split(";");
+        var ssladdrs = config["ssl-address"].Split(";");
+        var p12cert = config["p12-cert"];
+        var p12pass = config["p12-pass"];
 
         Console.WriteLine($"cwd = {Directory.GetCurrentDirectory()}");
 
@@ -56,6 +60,15 @@ public class Program
 
             Console.WriteLine($"HTTP/2 serving on http://{address}");
         }
+        foreach (var addr in ssladdrs)
+        {
+            if (addr.Length <= 0) continue;
+            IPEndPoint address = IPEndPoint.Parse(addr);
+            TlsServer tls = new(address, X509CertificateLoader.LoadPkcs12FromFile(p12cert, p12pass));
+            tasks.Add(tls.Serve(Wrapper));
+
+            Console.WriteLine($"HTTPS serving on http://{address}");
+        }
 
 
         // O9Server test = new(IPEndPoint.Parse("0.0.0.0:3000"));
@@ -76,7 +89,7 @@ public class Program
         {
             var client = conn.Client;
             while (!client.HeadersComplete) client = await conn.ReadClientAsync();
-            
+
             Console.WriteLine("connection established using " + client.Version);
 
             Console.WriteLine("\x1b[38;2;52;128;235m");
