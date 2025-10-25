@@ -28,6 +28,12 @@ public class Handlers(IConfigurationRoot config, string baseDir)
     }
     public async Task Entry(IDualHttpSocket socket)
     {
+        if (!socket.Client.IsValid)
+        {
+            Console.WriteLine("client is not valid");
+            await ErrorHandler(socket, "", 400);
+            return;
+        }
 
         if (socket.Client.Headers.TryGetValue("accept-encoding", out List<string> encoding))
         {
@@ -50,7 +56,7 @@ public class Handlers(IConfigurationRoot config, string baseDir)
         }
 
         string extra = "";
-        string rawFullPath = $"{baseDir}/{extra}/{socket.Client.Path}";
+        string rawFullPath = $"{baseDir}/{extra}/{socket.Client.Path.Trim()}";
         var fullPath = Path.GetFullPath(CleanPath(rawFullPath));
 
         FileSystemInfo info = new FileInfo(fullPath);
@@ -92,22 +98,28 @@ public class Handlers(IConfigurationRoot config, string baseDir)
 
         switch (code)
         {
+            case 400:
+                socket.Status = 400;
+                socket.StatusMessage = "Bad Request";
+                await socket.CloseAsync($"fix your client idk\n");
+                break;
+            
             case 404:
                 socket.Status = 404;
                 socket.StatusMessage = "Not Found";
-                await socket.CloseAsync(socket.Client.Path + " Not Found");
+                await socket.CloseAsync($"{socket.Client.Path} Not Found\n");
                 break;
 
             case 409:
                 socket.Status = 409;
                 socket.StatusMessage = "Conflict";
-                await socket.CloseAsync("Something went wrong");
+                await socket.CloseAsync("Something went wrong\n");
                 break;
 
             case 501:
                 socket.Status = 501;
                 socket.StatusMessage = "Not Implemented";
-                await socket.CloseAsync("Couldnt handle " + socket.Client.Path);
+                await socket.CloseAsync($"Couldnt handle {socket.Client.Path}\n");
                 break;
 
             default:
@@ -116,18 +128,6 @@ public class Handlers(IConfigurationRoot config, string baseDir)
                 await socket.CloseAsync(debug);
                 break;
         }
-    }
-    public async Task FileHandler(IDualHttpSocket socket, string path)
-    {
-        // await socket.CloseAsync("file");
-        // TODO: files over 500mb need to be streamed
-        var info = new FileInfo(path);
-        var str = info.OpenRead();
-
-        var big = new byte[(int)(0.5 * Math.Pow(1024, 2))];
-        await socket.CloseAsync(big);
-        await Task.Delay(100);
-        // byte[] bytes = File.ReadAllBytes(path);
     }
     public async Task DirectoryHandler(IDualHttpSocket socket, string path)
     {
@@ -138,7 +138,7 @@ public class Handlers(IConfigurationRoot config, string baseDir)
         string found = null;
         found = files.FirstOrDefault(f => f.StartsWith(last, StringComparison.CurrentCultureIgnoreCase));
         found ??= files.FirstOrDefault(f => f.StartsWith("index", StringComparison.CurrentCultureIgnoreCase));
-        
+
 
         if (found != null)
         {
@@ -149,6 +149,31 @@ public class Handlers(IConfigurationRoot config, string baseDir)
         {
             Console.WriteLine("found no files");
             await ErrorHandler(socket, path, 409);
+        }
+    }
+
+    public async Task FileHandler(IDualHttpSocket socket, string path)
+    {
+        // await socket.CloseAsync("file");
+        // TODO: files over 500mb need to be streamed
+        var info = new FileInfo(path);
+        var str = info.OpenRead();
+        var name = info.Name;
+
+        var ext = name.Split(".").Last();
+        var dmt = MimeTypes.types.GetValueOrDefault(ext) ?? "application/octet-stream";
+
+        if (name.EndsWith(".blank"))
+        {
+            socket.Status = 204;
+            socket.StatusMessage = "No Content";
+            await socket.CloseAsync();
+        }
+        else
+        {
+            socket.SetHeader("Content-Type", dmt);
+            byte[] bytes = File.ReadAllBytes(path);
+            await socket.CloseAsync(bytes);
         }
     }
 }
