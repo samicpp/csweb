@@ -20,7 +20,7 @@ public class TcpSocket(NetworkStream stream) : ANetSocket
     override public bool IsSecure { get { return false; } }
 }
 
-public class TcpServer(IPEndPoint address)
+public class H2CServer(IPEndPoint address)
 {
     public IPEndPoint address = address;
     public delegate Task Handler(IDualHttpSocket socket);
@@ -48,41 +48,119 @@ public class TcpServer(IPEndPoint address)
                 {
                     while (!client.HeadersComplete) client = await socket.ReadClientAsync();
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Console.WriteLine("failed to read client");
                     Console.WriteLine(e);
                 }
 
-
-                if (h2c && client.Headers.TryGetValue("upgrade", out List<string> up) && up[0] == "h2c")
+                try
                 {
-                    using var h2c = await socket.H2CAsync();
-
-                    await h2c.SendSettingsAsync(Http2Settings.Default());
-
-                    var upstream = new Http2Stream(1, h2c);
-                    await upstream.ReadClientAsync();
-                    var _ = handler(upstream);
-
-                    while (h2c.goaway == null)
+                    if (h2c && client.Headers.TryGetValue("upgrade", out List<string> up) && up[0] == "h2c")
                     {
-                        List<Http2Frame> frames = [await h2c.ReadOneAsync()];
-                        var opened = await h2c.HandleAsync(frames);
-                        foreach (var sid in opened)
+                        using var h2c = await socket.H2CAsync();
+
+                        await h2c.InitAsync();
+                        await h2c.SendSettingsAsync(Http2Settings.Default());
+
+                        var upstream = new Http2Stream(1, h2c);
+                        await upstream.ReadClientAsync();
+                        var _ = handler(upstream);
+
+                        while (h2c.goaway == null)
                         {
-                            var stream = new Http2Stream(sid, h2c);
+                            List<Http2Frame> frames = [await h2c.ReadOneAsync()];
+                            var opened = await h2c.HandleAsync(frames);
 
-                            var sclient = await socket.ReadClientAsync();
-                            while (!sclient.HeadersComplete) client = await stream.ReadClientAsync();
+                            foreach (var frame in frames)
+                            {
+                                Console.Write($"h2c frame \x1b[36m{frame.type}\x1b[0m [ ");
+                                foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
+                                Console.WriteLine("]");
+                            }
 
-                            var _d = handler(stream);
+                            foreach (var sid in opened)
+                            {
+                                var stream = new Http2Stream(sid, h2c);
+
+                                var _d = handler(stream);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        await handler(socket);
+                    }
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine("\x1b[91mserver error occured");
+                    Console.WriteLine(e);
+                    Console.ResetColor();
+                }
+            });
+        }
+    }
+}
+
+public class H2Server(IPEndPoint address)
+{
+    public IPEndPoint address = address;
+    public delegate Task Handler(IDualHttpSocket socket);
+
+    public async Task Serve(Handler handler)
+    {
+        using Socket listener = new(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+
+        listener.Bind(address);
+        listener.Listen(10);
+
+        while (true)
+        {
+            var shandler = await listener.AcceptAsync();
+            Console.WriteLine($"\e[32m{shandler.RemoteEndPoint}\e[0m");
+
+            var _ = Task.Run(async () =>
+            {
+                using Http2Session h2 = new(new TcpSocket(new(shandler, ownsSocket: true)), Http2Settings.Default());
+
+                try
+                {
+                    await h2.InitAsync(); // Console.WriteLine("h2 init");
+                    await h2.SendSettingsAsync(Http2Settings.Default()); // Console.WriteLine("h2 settings");
+
+                    while (true)
+                    {
+                        try
+                        {
+                            List<Http2Frame> frames = [await h2.ReadOneAsync()];
+                            var opened = await h2.HandleAsync(frames);
+
+                            foreach (var frame in frames)
+                            {
+                                Console.Write($"h2 frame \x1b[36m{frame.type}\x1b[0m [ ");
+                                foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
+                                Console.WriteLine("]");
+                            }
+
+                            foreach (var sid in opened)
+                            {
+                                Http2Stream stream = new(sid, h2);
+
+                                var _d = handler(stream);
+                            }
+                        }
+                        catch(HttpException.ConnectionClosed)
+                        {
+                            break;
                         }
                     }
                 }
-                else
+                catch(Exception e)
                 {
-                    await handler(socket);
+                    Console.WriteLine("\x1b[91mserver error occured");
+                    Console.WriteLine(e);
+                    Console.ResetColor();
                 }
 
             });

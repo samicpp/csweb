@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Samicpp.Http;
-
+using System.Linq;
 
 public class Handlers(IConfigurationRoot config, string baseDir)
 {
@@ -16,12 +16,14 @@ public class Handlers(IConfigurationRoot config, string baseDir)
     readonly Regex remove1 = new(@"(\?.*$)|(\#.*$)|(\:.*$)", RegexOptions.Compiled);
     readonly Regex remove2 = new(@"\/\.{1,2}(?=\/|$)", RegexOptions.Compiled);
     readonly Regex collapse = new(@"\/+", RegexOptions.Compiled);
+    readonly Regex remove3 = new(@"/$", RegexOptions.Compiled);
 
     string CleanPath(string path)
     {
         var cpath = remove1.Replace(path, "");
         cpath = remove2.Replace(cpath, "");
         cpath = collapse.Replace(cpath, "/");
+        cpath = remove3.Replace(cpath, "");
         return cpath;
     }
     public async Task Entry(IDualHttpSocket socket)
@@ -49,7 +51,7 @@ public class Handlers(IConfigurationRoot config, string baseDir)
 
         string extra = "";
         string rawFullPath = $"{baseDir}/{extra}/{socket.Client.Path}";
-        var fullPath = CleanPath(rawFullPath);
+        var fullPath = Path.GetFullPath(CleanPath(rawFullPath));
 
         FileSystemInfo info = new FileInfo(fullPath);
         if (!info.Exists) info = new DirectoryInfo(fullPath);
@@ -59,6 +61,7 @@ public class Handlers(IConfigurationRoot config, string baseDir)
         // else if (info is FileInfo) Console.WriteLine($"file {info.FullName}");
         // else if (info is DirectoryInfo) Console.WriteLine($"directory {info.FullName}");
         // else Console.WriteLine($"unknown type {info.FullName}");
+        Console.WriteLine($"\x1b[35mfull path = {fullPath}\e[0m");
 
         if (!info.Exists)
         {
@@ -70,11 +73,11 @@ public class Handlers(IConfigurationRoot config, string baseDir)
         }
         else if (info is FileInfo fi)
         {
-            await FileHandler(socket, fi, fullPath);
+            await FileHandler(socket, fullPath);
         }
         else if (info is DirectoryInfo di)
         {
-            await DirectoryHandler(socket, di, fullPath);
+            await DirectoryHandler(socket, fullPath);
         }
         else
         {
@@ -84,40 +87,68 @@ public class Handlers(IConfigurationRoot config, string baseDir)
 
     public async Task ErrorHandler(IDualHttpSocket socket, string path, int code, string message = "", string debug = "")
     {
+        socket.SetHeader("Content-Type", "text/plain");
+        Console.WriteLine($"\x1b[31m{code} error\x1b[0m");
+
         switch (code)
         {
             case 404:
                 socket.Status = 404;
                 socket.StatusMessage = "Not Found";
-                socket.SetHeader("Content-Type", "text/plain");
                 await socket.CloseAsync(socket.Client.Path + " Not Found");
+                break;
+
+            case 409:
+                socket.Status = 409;
+                socket.StatusMessage = "Conflict";
+                await socket.CloseAsync("Something went wrong");
                 break;
 
             case 501:
                 socket.Status = 501;
                 socket.StatusMessage = "Not Implemented";
-                socket.SetHeader("Content-Type", "text/plain");
                 await socket.CloseAsync("Couldnt handle " + socket.Client.Path);
                 break;
 
             default:
                 socket.Status = code;
                 socket.StatusMessage = message;
-                socket.SetHeader("Content-Type", "text/plain");
                 await socket.CloseAsync(debug);
                 break;
         }
     }
-    public async Task FileHandler(IDualHttpSocket socket, FileInfo info, string path)
+    public async Task FileHandler(IDualHttpSocket socket, string path)
     {
+        // await socket.CloseAsync("file");
         // TODO: files over 500mb need to be streamed
+        var info = new FileInfo(path);
+        var str = info.OpenRead();
 
+        var big = new byte[(int)(0.5 * Math.Pow(1024, 2))];
+        await socket.CloseAsync(big);
+        await Task.Delay(100);
         // byte[] bytes = File.ReadAllBytes(path);
-        await socket.CloseAsync("file");
     }
-    public async Task DirectoryHandler(IDualHttpSocket socket, DirectoryInfo info, string path)
+    public async Task DirectoryHandler(IDualHttpSocket socket, string path)
     {
-        // string[] files = Directory.GetFiles(path);
-        await socket.CloseAsync("directory");
+        // await socket.CloseAsync("directory");
+        string last = path.Split("/").Last().ToLower();
+        var files = Directory.GetFiles(path).Select(f => f.Split("/").Last());
+
+        string found = null;
+        found = files.FirstOrDefault(f => f.StartsWith(last, StringComparison.CurrentCultureIgnoreCase));
+        found ??= files.FirstOrDefault(f => f.StartsWith("index", StringComparison.CurrentCultureIgnoreCase));
+        
+
+        if (found != null)
+        {
+            Console.WriteLine($"found file {path}/{found}");
+            await FileHandler(socket, $"{path}/{found}");
+        }
+        else
+        {
+            Console.WriteLine("found no files");
+            await ErrorHandler(socket, path, 409);
+        }
     }
 }

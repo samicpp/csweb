@@ -21,8 +21,9 @@ public class Program
     static Handlers hands;
     public static async Task Main()
     {
-        var addrs = config["address"].Split(";");
+        var addrs = config["h2c-address"].Split(";");
         var O9addrs = config["09-address"].Split(";");
+        var h2addrs = config["h2-address"].Split(";");
 
         Console.WriteLine($"cwd = {Directory.GetCurrentDirectory()}");
 
@@ -32,7 +33,7 @@ public class Program
         {
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr);
-            TcpServer tcp = new(address);
+            H2CServer tcp = new(address);
             tasks.Add(tcp.Serve(Wrapper));
 
             Console.WriteLine($"HTTP/1.1 (h2c) serving on http://{address}");
@@ -45,6 +46,15 @@ public class Program
             tasks.Add(tcp.Serve(Wrapper));
 
             Console.WriteLine($"HTTP/0.9 serving on http://{address}");
+        }
+        foreach (var addr in h2addrs)
+        {
+            if (addr.Length <= 0) continue;
+            IPEndPoint address = IPEndPoint.Parse(addr);
+            H2Server tcp = new(address);
+            tasks.Add(tcp.Serve(Wrapper));
+
+            Console.WriteLine($"HTTP/2 serving on http://{address}");
         }
 
 
@@ -65,6 +75,8 @@ public class Program
         try
         {
             var client = conn.Client;
+            while (!client.HeadersComplete) client = await conn.ReadClientAsync();
+            
             Console.WriteLine("connection established using " + client.Version);
 
             Console.WriteLine("\x1b[38;2;52;128;235m");
@@ -102,7 +114,9 @@ public class Program
         }
         catch (Exception e)
         {
+            Console.WriteLine("\x1b[91mwrapper error occured");
             Console.WriteLine(e);
+            Console.ResetColor();
         }
         finally
         {
