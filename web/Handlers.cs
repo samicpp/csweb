@@ -101,8 +101,14 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             foreach (var (k, v) in config)
             {
                 if (k == "default") continue;
-                if (fullhost.StartsWith(k, StringComparison.CurrentCultureIgnoreCase))
-                {
+                var type = v.GetValueOrDefault("match-type") ?? "host";
+                if (
+                    (type == "host" && socket.Client.Host == k) ||
+                    (type == "start" && fullhost.StartsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
+                    (type == "end" && fullhost.EndsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
+                    (type == "regex" && new Regex(k).IsMatch(fullhost)) ||
+                    (type == "path-start" && socket.Client.Path.StartsWith(k, StringComparison.CurrentCultureIgnoreCase))
+                ){
                     extra = v.GetValueOrDefault("dir") ?? extra;
                     router = v.GetValueOrDefault("router") ?? router;
                     cmatch = true;
@@ -114,6 +120,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             string rawFullPath = $"{baseDir}/{extra}/{socket.Client.Path.Trim()}";
             routerPath = $"{baseDir}/{extra}/{router}";
             fullPath = Path.GetFullPath(CleanPath(rawFullPath));
+            ccache[fullhost] = (fullPath, routerPath);
         }
 
         Console.WriteLine($"\x1b[35mfull path = {fullPath}\e[0m");
