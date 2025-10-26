@@ -8,6 +8,6 @@ a webserver that uses `samicpp/dotnet-http`
 - [X] support json config files
 - [x] allow simple dynamic content files
 - [x] add file caching
-- [ ] add middleware support
+- [x] add middleware support
 - [ ] ~~add regex file matching config files~~
 - [ ] add protocol detection

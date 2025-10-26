@@ -10,6 +10,7 @@ using Samicpp.Http;
 using System.Linq;
 using System.Text.Json;
 using System.Net;
+using System.Reflection;
 
 public class Handlers(IConfigurationRoot appconfig, string baseDir)
 {
@@ -165,7 +166,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         }
     }
 
-    public async Task ErrorHandler(IDualHttpSocket socket, string path, int code, string message = "", string debug = "")
+    public async Task ErrorHandler(IDualHttpSocket socket, string path, int code, string status = "", string message = "", string debug = "")
     {
         socket.SetHeader("Content-Type", "text/plain");
         Console.WriteLine($"\x1b[31m{code} error\x1b[0m");
@@ -190,6 +191,12 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                 await socket.CloseAsync("Something went wrong\n");
                 break;
 
+            case 500:
+                socket.Status = 500;
+                socket.StatusMessage = "Internal Server Error";
+                await socket.CloseAsync($"{message}:\n{debug}");
+                break;
+
             case 501:
                 socket.Status = 501;
                 socket.StatusMessage = "Not Implemented";
@@ -198,8 +205,8 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
 
             default:
                 socket.Status = code;
-                socket.StatusMessage = message;
-                await socket.CloseAsync(debug);
+                socket.StatusMessage = status;
+                await socket.CloseAsync($"{message}:\n{debug}");
                 break;
         }
     }
@@ -226,6 +233,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         }
     }
 
+    Dictionary<string, IHttpPlugin> plugins = [];
     public async Task FileHandler(IDualHttpSocket socket, string path)
     {
         // await socket.CloseAsync("file");
@@ -245,7 +253,33 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             socket.StatusMessage = "No Content";
             await socket.CloseAsync();
         }
-        else if(name.EndsWith(".redirect") || name.EndsWith(".link") || name.Contains(".var."))
+        else if (name.EndsWith(".dll"))
+        {
+            try
+            {
+                if (plugins.TryGetValue(path, out var plug) && plug.Alive)
+                {
+                    await plug.Handle(socket);
+                }
+                else
+                {
+                    Console.WriteLine("loading new plugin " + name);
+                    string tname = Path.GetFileNameWithoutExtension(name);
+                    byte[] lib = await File.ReadAllBytesAsync(path);
+                    Assembly assembly = Assembly.Load(lib);
+                    Type type = assembly.GetType(tname);
+                    IHttpPlugin plugin = (IHttpPlugin)Activator.CreateInstance(type);
+                    await plugin.Init(path);
+                    await plugin.Handle(socket);
+                    if (plugin.Alive) plugins[path] = plugin;
+                }
+            }
+            catch (Exception e)
+            {
+                await ErrorHandler(socket, path, 500, "", "plugin error", e.StackTrace);
+            }
+        }
+        else if (name.EndsWith(".redirect") || name.EndsWith(".link") || name.Contains(".var."))
         {
             Console.WriteLine("special file");
             string utext = await File.ReadAllTextAsync(path);
