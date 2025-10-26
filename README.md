@@ -9,3 +9,5 @@ a webserver that uses `samicpp/dotnet-http`
 - [ ] allow simple dynamic content files
 - [ ] add middleware support
 - [ ] ~~add regex file matching config files~~
+- [ ] add file caching
+- [ ] add protocol detection

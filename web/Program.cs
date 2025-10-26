@@ -14,6 +14,8 @@ using Microsoft.Extensions.Configuration;
 using Samicpp.Http.Http09;
 using System.Diagnostics;
 using System.Security.Cryptography.X509Certificates;
+using System.Linq;
+using System.Net.Security;
 
 public class Program
 {
@@ -29,6 +31,7 @@ public class Program
         var ssladdrs = config["ssl-address"].Split(";");
         var p12cert = config["p12-cert"];
         var p12pass = config["p12-pass"];
+        var alpn = config["alpn"].Split(";").Select(a => new SslApplicationProtocol(a.Trim())).ToList();
 
         Console.WriteLine($"cwd = {Directory.GetCurrentDirectory()}");
 
@@ -37,7 +40,7 @@ public class Program
         foreach (var addr in addrs)
         {
             if (addr.Length <= 0) continue;
-            IPEndPoint address = IPEndPoint.Parse(addr);
+            IPEndPoint address = IPEndPoint.Parse(addr.Trim());
             H2CServer tcp = new(address);
             tasks.Add(tcp.Serve(Wrapper));
 
@@ -46,7 +49,7 @@ public class Program
         foreach (var addr in O9addrs)
         {
             if (addr.Length <= 0) continue;
-            IPEndPoint address = IPEndPoint.Parse(addr);
+            IPEndPoint address = IPEndPoint.Parse(addr.Trim());
             O9Server tcp = new(address);
             tasks.Add(tcp.Serve(Wrapper));
 
@@ -55,7 +58,7 @@ public class Program
         foreach (var addr in h2addrs)
         {
             if (addr.Length <= 0) continue;
-            IPEndPoint address = IPEndPoint.Parse(addr);
+            IPEndPoint address = IPEndPoint.Parse(addr.Trim());
             H2Server tcp = new(address);
             tasks.Add(tcp.Serve(Wrapper));
 
@@ -64,9 +67,11 @@ public class Program
         foreach (var addr in ssladdrs)
         {
             if (addr.Length <= 0) continue;
-            IPEndPoint address = IPEndPoint.Parse(addr);
+            IPEndPoint address = IPEndPoint.Parse(addr.Trim());
             TlsServer tls = new(address, X509CertificateLoader.LoadPkcs12FromFile(p12cert, p12pass));
             tasks.Add(tls.Serve(Wrapper));
+
+            tls.alpn = alpn;
 
             Console.WriteLine($"HTTPS serving on http://{address}");
         }

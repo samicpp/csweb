@@ -251,8 +251,18 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
         var sslStream = new SslStream(socket, false);
         try
         {
-            await sslStream.AuthenticateAsServerAsync(opt);
-            string alpn = sslStream.NegotiatedApplicationProtocol.ToString();
+            string alpn = "";
+            try
+            {
+                await sslStream.AuthenticateAsServerAsync(opt);
+                alpn = sslStream.NegotiatedApplicationProtocol.ToString();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("\x1b[91mtls authentication error occured");
+                Console.WriteLine(e);
+                Console.ResetColor();
+            }
             using TlsSocket tls = new(sslStream);
 
             Console.WriteLine($"alpn = {alpn}");
@@ -307,6 +317,10 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                     Console.WriteLine(e);
                     Console.ResetColor();
                 }
+            }
+            else
+            {
+                Console.WriteLine("couldnt handle alpn");
             }
         }
         catch (Exception e)
