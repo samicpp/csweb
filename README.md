@@ -7,7 +7,7 @@ a webserver that uses `samicpp/dotnet-http`
 - [X] support tls
 - [X] support json config files
 - [x] allow simple dynamic content files
+- [x] add file caching
 - [ ] add middleware support
 - [ ] ~~add regex file matching config files~~
-- [ ] add file caching
 - [ ] add protocol detection

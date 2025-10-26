@@ -16,6 +16,7 @@ using System.Diagnostics;
 using System.Security.Cryptography.X509Certificates;
 using System.Linq;
 using System.Net.Security;
+using Samicpp.Http.Debug;
 
 public class Program
 {
@@ -123,6 +124,15 @@ public class Program
 
 
         hands = new(config, config["serve-dir"]);
+
+        // HttpClient testClient = new()
+        // {
+        //     Host = "localhost",
+        //     Method = "GET",
+        //     Path = "/",
+        // };
+        // using FakeHttpSocket test = new(testClient);
+        // await Wrapper(test);
 
         foreach (var task in tasks) await task;
 

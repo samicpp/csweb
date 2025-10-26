@@ -19,6 +19,8 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
     readonly Regex remove2 = new(@"\/\.{1,2}(?=\/|$)", RegexOptions.Compiled);
     readonly Regex collapse = new(@"\/+", RegexOptions.Compiled);
     readonly Regex remove3 = new(@"/$", RegexOptions.Compiled);
+    readonly Dictionary<string, (DateTime, string, byte[])> cache = [];
+    readonly Dictionary<string, string> ccache = [];
 
     DateTime configTime;
     Dictionary<string, Dictionary<string, string>> config = new()
@@ -63,9 +65,9 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             Console.WriteLine("no compression");
         }
 
-        string extra = "";
-        string fullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{socket.Client.Path}";
+        string fullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath(socket.Client.Path)}";
 
+        string extra = "";
         FileInfo cinfo = new($"{baseDir}/routes.json");
         if (cinfo.Exists && cinfo.LastWriteTime != configTime)
         {
@@ -83,35 +85,58 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             }
         }
 
-        bool cmatch = false;
-        foreach (var (k, v) in config)
+        string fullPath;
+        if (ccache.TryGetValue(fullhost, out var path)) fullPath = path;
+        else
         {
-            if (k == "default") continue;
-            if (fullhost.StartsWith(k, StringComparison.CurrentCultureIgnoreCase))
+            bool cmatch = false;
+            foreach (var (k, v) in config)
             {
-                extra = v.GetValueOrDefault("dir") ?? extra;
-                cmatch = true;
-                break;
+                if (k == "default") continue;
+                if (fullhost.StartsWith(k, StringComparison.CurrentCultureIgnoreCase))
+                {
+                    extra = v.GetValueOrDefault("dir") ?? extra;
+                    cmatch = true;
+                    break;
+                }
             }
-        }
-        if (!cmatch && config.TryGetValue("default", out var def)) extra = def.GetValueOrDefault("dir") ?? extra;
+            if (!cmatch && config.TryGetValue("default", out var def)) extra = def.GetValueOrDefault("dir") ?? extra;
 
-        string rawFullPath = $"{baseDir}/{extra}/{socket.Client.Path.Trim()}";
-        var fullPath = Path.GetFullPath(CleanPath(rawFullPath));
+            string rawFullPath = $"{baseDir}/{extra}/{socket.Client.Path.Trim()}";
+            fullPath = Path.GetFullPath(CleanPath(rawFullPath));
+        }
 
         Console.WriteLine($"\x1b[35mfull path = {fullPath}\e[0m");
 
         // int e = 0;
         // int a = 1 / e;
 
-        await Handle(socket, fullPath);
-    }
-    
-    public async Task Handle(IDualHttpSocket socket, string fullPath)
-    {
+
         FileSystemInfo info = new FileInfo(fullPath);
         if (!info.Exists) info = new DirectoryInfo(fullPath);
         if (info.Exists) info = info.ResolveLinkTarget(returnFinalTarget: true) ?? info;
+
+        bool cached = false;
+        if (cache.TryGetValue(fullhost, out var tcb))
+        {
+            var (t, c, b) = tcb;
+            if (t == info.LastWriteTime)
+            {
+                Console.WriteLine("caching response");
+                socket.SetHeader("Content-Type", c);
+                await socket.CloseAsync(b);
+                cached = true;
+            }
+        }
+
+        if (!cached) await Handle(socket, fullPath, info);
+    }
+
+    public async Task Handle(IDualHttpSocket socket, string fullPath, FileSystemInfo info)
+    {
+        // FileSystemInfo info = new FileInfo(fullPath);
+        // if (!info.Exists) info = new DirectoryInfo(fullPath);
+        // if (info.Exists) info = info.ResolveLinkTarget(returnFinalTarget: true) ?? info;
 
         // if (!info.Exists) Console.WriteLine($"{fullPath} doesnt exist");
         // else if (info is FileInfo) Console.WriteLine($"file {info.FullName}");
@@ -211,6 +236,8 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
 
         var ext = name.Split(".").Last();
         var dmt = MimeTypes.types.GetValueOrDefault(ext) ?? "application/octet-stream";
+        string fullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath(socket.Client.Path)}";
+
 
         if (name.EndsWith(".blank"))
         {
@@ -262,7 +289,12 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             else if (name.EndsWith(".link"))
             {
                 Console.WriteLine("link, passing request to handler");
-                await Handle(socket, utext.Trim());
+
+                FileSystemInfo ninfo = new FileInfo(utext);
+                if (!info.Exists) ninfo = new DirectoryInfo(utext);
+                if (info.Exists) ninfo = info.ResolveLinkTarget(returnFinalTarget: true) ?? ninfo;
+
+                await Handle(socket, utext.Trim(), ninfo);
             }
         }
         else
@@ -270,6 +302,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             socket.SetHeader("Content-Type", dmt);
             byte[] bytes = await File.ReadAllBytesAsync(path);
             await socket.CloseAsync(bytes);
+            cache[fullhost] = (info.LastWriteTime, dmt, bytes);
         }
     }
 }
