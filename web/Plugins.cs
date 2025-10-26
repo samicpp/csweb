@@ -8,7 +8,7 @@ using Samicpp.Http;
 public interface IHttpPlugin
 {
     bool Alive { get; }
-    Task Handle(IDualHttpSocket socket);
+    Task Handle(IDualHttpSocket socket, string path);
     Task Init(string selfPath);
 }
 

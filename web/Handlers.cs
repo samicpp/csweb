@@ -21,7 +21,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
     readonly Regex collapse = new(@"\/+", RegexOptions.Compiled);
     readonly Regex remove3 = new(@"/$", RegexOptions.Compiled);
     readonly Dictionary<string, (DateTime, string, byte[])> cache = [];
-    readonly Dictionary<string, string> ccache = [];
+    readonly Dictionary<string, (string, string)> ccache = [];
 
     DateTime configTime;
     Dictionary<string, Dictionary<string, string>> config = new()
@@ -68,7 +68,9 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
 
         string fullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath(socket.Client.Path)}";
 
+        bool fresh = false;
         string extra = "";
+        string router = null;
         FileInfo cinfo = new($"{baseDir}/routes.json");
         if (cinfo.Exists && cinfo.LastWriteTime != configTime)
         {
@@ -79,6 +81,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             try
             {
                 config = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(text);
+                fresh = true;
             }
             catch (Exception)
             {
@@ -87,7 +90,11 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         }
 
         string fullPath;
-        if (ccache.TryGetValue(fullhost, out var path)) fullPath = path;
+        string routerPath;
+        if (!fresh && ccache.TryGetValue(fullhost, out var path)) {
+            fullPath = path.Item1;
+            routerPath = path.Item2;
+        }
         else
         {
             bool cmatch = false;
@@ -97,6 +104,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                 if (fullhost.StartsWith(k, StringComparison.CurrentCultureIgnoreCase))
                 {
                     extra = v.GetValueOrDefault("dir") ?? extra;
+                    router = v.GetValueOrDefault("router") ?? router;
                     cmatch = true;
                     break;
                 }
@@ -104,36 +112,61 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             if (!cmatch && config.TryGetValue("default", out var def)) extra = def.GetValueOrDefault("dir") ?? extra;
 
             string rawFullPath = $"{baseDir}/{extra}/{socket.Client.Path.Trim()}";
+            routerPath = $"{baseDir}/{extra}/{router}";
             fullPath = Path.GetFullPath(CleanPath(rawFullPath));
         }
 
         Console.WriteLine($"\x1b[35mfull path = {fullPath}\e[0m");
+        if (router != null) Console.WriteLine($"\x1b[35mrouter path = {routerPath}\e[0m");
 
         // int e = 0;
         // int a = 1 / e;
 
-
-        FileSystemInfo info = new FileInfo(fullPath);
-        if (!info.Exists) info = new DirectoryInfo(fullPath);
-        if (info.Exists) info = info.ResolveLinkTarget(returnFinalTarget: true) ?? info;
-
-        bool cached = false;
-        if (cache.TryGetValue(fullhost, out var tcb))
+        if (router != null)
         {
-            var (t, c, b) = tcb;
-            if (t == info.LastWriteTime)
-            {
-                Console.WriteLine("caching response");
-                socket.SetHeader("Content-Type", c);
-                await socket.CloseAsync(b);
-                cached = true;
-            }
-        }
+            FileSystemInfo info = new FileInfo(routerPath);
+            if (!info.Exists) info = new DirectoryInfo(routerPath);
+            if (info.Exists) info = info.ResolveLinkTarget(true) ?? info;
 
-        if (!cached) await Handle(socket, fullPath, info);
+            bool cached = false;
+            if (cache.TryGetValue(fullhost, out var tcb))
+            {
+                var (t, c, b) = tcb;
+                if (t == info.LastWriteTime)
+                {
+                    Console.WriteLine("caching response");
+                    socket.SetHeader("Content-Type", c);
+                    await socket.CloseAsync(b);
+                    cached = true;
+                }
+            }
+
+            if (!cached) await Handle(socket, routerPath, info, fullPath);
+        }
+        else
+        {
+            FileSystemInfo info = new FileInfo(fullPath);
+            if (!info.Exists) info = new DirectoryInfo(fullPath);
+            if (info.Exists) info = info.ResolveLinkTarget(true) ?? info;
+
+            bool cached = false;
+            if (cache.TryGetValue(fullhost, out var tcb))
+            {
+                var (t, c, b) = tcb;
+                if (t == info.LastWriteTime)
+                {
+                    Console.WriteLine("caching response");
+                    socket.SetHeader("Content-Type", c);
+                    await socket.CloseAsync(b);
+                    cached = true;
+                }
+            }
+
+            if (!cached) await Handle(socket, fullPath, info, null);
+        }
     }
 
-    public async Task Handle(IDualHttpSocket socket, string fullPath, FileSystemInfo info)
+    public async Task Handle(IDualHttpSocket socket, string fullPath, FileSystemInfo info, string normalPath)
     {
         // FileSystemInfo info = new FileInfo(fullPath);
         // if (!info.Exists) info = new DirectoryInfo(fullPath);
@@ -154,11 +187,11 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         }
         else if (info is FileInfo fi)
         {
-            await FileHandler(socket, fullPath);
+            await FileHandler(socket, fullPath, normalPath);
         }
         else if (info is DirectoryInfo di)
         {
-            await DirectoryHandler(socket, fullPath);
+            await DirectoryHandler(socket, fullPath, normalPath);
         }
         else
         {
@@ -210,7 +243,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                 break;
         }
     }
-    public async Task DirectoryHandler(IDualHttpSocket socket, string path)
+    public async Task DirectoryHandler(IDualHttpSocket socket, string path, string normalPath)
     {
         // await socket.CloseAsync("directory");
         string last = path.Split("/").Last().ToLower();
@@ -224,7 +257,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         if (found != null)
         {
             Console.WriteLine($"found file {path}/{found}");
-            await FileHandler(socket, $"{path}/{found}");
+            await FileHandler(socket, $"{path}/{found}", normalPath);
         }
         else
         {
@@ -233,8 +266,8 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         }
     }
 
-    Dictionary<string, IHttpPlugin> plugins = [];
-    public async Task FileHandler(IDualHttpSocket socket, string path)
+    Dictionary<string, (DateTime, IHttpPlugin)> plugins = [];
+    public async Task FileHandler(IDualHttpSocket socket, string path, string normalPath)
     {
         // await socket.CloseAsync("file");
         // TODO: files over 500mb need to be streamed
@@ -257,9 +290,9 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         {
             try
             {
-                if (plugins.TryGetValue(path, out var plug) && plug.Alive)
+                if (plugins.TryGetValue(path, out var plug) && info.LastWriteTime == plug.Item1 && plug.Item2.Alive)
                 {
-                    await plug.Handle(socket);
+                    await plug.Item2.Handle(socket, normalPath ?? path);
                 }
                 else
                 {
@@ -270,8 +303,8 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                     Type type = assembly.GetType(tname);
                     IHttpPlugin plugin = (IHttpPlugin)Activator.CreateInstance(type);
                     await plugin.Init(path);
-                    await plugin.Handle(socket);
-                    if (plugin.Alive) plugins[path] = plugin;
+                    await plugin.Handle(socket, normalPath ?? path);
+                    if (plugin.Alive) plugins[path] = (info.LastWriteTime, plugin);
                 }
             }
             catch (Exception e)
@@ -328,7 +361,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                 if (!info.Exists) ninfo = new DirectoryInfo(utext);
                 if (info.Exists) ninfo = info.ResolveLinkTarget(returnFinalTarget: true) ?? ninfo;
 
-                await Handle(socket, utext.Trim(), ninfo);
+                await Handle(socket, utext.Trim(), ninfo, normalPath);
             }
         }
         else

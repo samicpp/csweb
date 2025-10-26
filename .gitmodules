@@ -2,6 +2,6 @@
         path = dotnet-http
         url = https://github.com/samicpp/dotnet-http
 
-# [submodule "website-files"]
-#         path = personal
-#         url = https://github.com/samicpp/website-files
+[submodule "website-files"]
+        path = personal
+        url = https://github.com/samicpp/website-files
