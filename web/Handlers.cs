@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Samicpp.Http;
 using System.Linq;
 using System.Text.Json;
+using System.Net;
 
 public class Handlers(IConfigurationRoot appconfig, string baseDir)
 {
@@ -98,6 +99,16 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         string rawFullPath = $"{baseDir}/{extra}/{socket.Client.Path.Trim()}";
         var fullPath = Path.GetFullPath(CleanPath(rawFullPath));
 
+        Console.WriteLine($"\x1b[35mfull path = {fullPath}\e[0m");
+
+        // int e = 0;
+        // int a = 1 / e;
+
+        await Handle(socket, fullPath);
+    }
+    
+    public async Task Handle(IDualHttpSocket socket, string fullPath)
+    {
         FileSystemInfo info = new FileInfo(fullPath);
         if (!info.Exists) info = new DirectoryInfo(fullPath);
         if (info.Exists) info = info.ResolveLinkTarget(returnFinalTarget: true) ?? info;
@@ -106,7 +117,6 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         // else if (info is FileInfo) Console.WriteLine($"file {info.FullName}");
         // else if (info is DirectoryInfo) Console.WriteLine($"directory {info.FullName}");
         // else Console.WriteLine($"unknown type {info.FullName}");
-        Console.WriteLine($"\x1b[35mfull path = {fullPath}\e[0m");
 
         if (!info.Exists)
         {
@@ -210,7 +220,50 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         }
         else if(name.EndsWith(".redirect") || name.EndsWith(".link") || name.Contains(".var."))
         {
+            Console.WriteLine("special file");
             string utext = await File.ReadAllTextAsync(path);
+            EndPoint ip = socket.EndPoint ?? IPEndPoint.Parse("[::]:0");
+            string addr = ip.ToString();
+
+            if (ip is IPEndPoint end)
+            {
+                addr = end.Address.ToString();
+            }
+
+            Dictionary<string, string> vars = new()
+            {
+                { "%IP%", addr },
+                { "%FULL_IP%", ip.ToString() },
+                { "%PATH%", socket.Client.Path },
+                { "%HOST%", socket.Client.Host },
+                { "%SCHEME%", socket.IsHttps ? "https" : "http" },
+                { "%BASE_DIR%", baseDir },
+            };
+
+            foreach (var (k, v) in vars)
+            {
+                utext = utext.Replace(k, v);
+            }
+
+            if (name.Contains(".var."))
+            {
+                Console.WriteLine("var file");
+                socket.SetHeader("Content-Type", dmt);
+                await socket.CloseAsync(utext);
+            }
+            else if (name.EndsWith(".redirect"))
+            {
+                Console.WriteLine("redirect file");
+                socket.Status = 302;
+                socket.StatusMessage = "Found";
+                socket.SetHeader("Location", utext.Replace("\n", "").Trim());
+                await socket.CloseAsync();
+            }
+            else if (name.EndsWith(".link"))
+            {
+                Console.WriteLine("link, passing request to handler");
+                await Handle(socket, utext.Trim());
+            }
         }
         else
         {

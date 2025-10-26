@@ -49,7 +49,7 @@ public class H2CServer(IPEndPoint address)
 
             var _ = Task.Run(async () =>
             {
-                using Http1Socket socket = new(new TcpSocket(new(shandler, ownsSocket: true)));
+                using Http1Socket socket = new(new TcpSocket(new(shandler, ownsSocket: true)), shandler.RemoteEndPoint);
 
                 var client = socket.Client;
 
@@ -132,7 +132,7 @@ public class H2Server(IPEndPoint address)
 
             var _ = Task.Run(async () =>
             {
-                using Http2Session h2 = new(new TcpSocket(new(shandler, ownsSocket: true)), Http2Settings.Default());
+                using Http2Session h2 = new(new TcpSocket(new(shandler, ownsSocket: true)), Http2Settings.Default(), shandler.RemoteEndPoint);
 
                 try
                 {
@@ -198,7 +198,7 @@ public class O9Server(IPEndPoint address)
 
             var _ = Task.Run(async () =>
             {
-                using Http09Socket socket = new(new TcpSocket(new(shandler, ownsSocket: true)));
+                using Http09Socket socket = new(new TcpSocket(new(shandler, ownsSocket: true)), shandler.RemoteEndPoint);
 
                 var client = await socket.ReadClientAsync();
 
@@ -243,10 +243,10 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
             Console.WriteLine($"\e[32m{shandler.RemoteEndPoint}\e[0m");
             NetworkStream stream = new(shandler, true);
 
-            var _ = Task.Run(async () => await TlsUpgrade(handler, stream, opt));
+            var _ = Task.Run(async () => await TlsUpgrade(handler, stream, opt, shandler.RemoteEndPoint));
         }
     }
-    async Task TlsUpgrade(Handler handler, NetworkStream socket, SslServerAuthenticationOptions opt)
+    async Task TlsUpgrade(Handler handler, NetworkStream socket, SslServerAuthenticationOptions opt, EndPoint end)
     {
         var sslStream = new SslStream(socket, false);
         try
@@ -269,17 +269,17 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
 
             if (alpn == "http/0.9")
             {
-                Http09Socket sock = new(tls);
+                using Http09Socket sock = new(tls, end);
                 await handler(sock);
             }
             else if (alpn == "http/1.1")
             {
-                Http1Socket sock = new(tls);
+                using Http1Socket sock = new(tls, end);
                 await handler(sock);
             }
             else if (alpn == "h2")
             {
-                Http2Session h2 = new(tls, Http2Settings.Default());
+                using Http2Session h2 = new(tls, Http2Settings.Default(), end);
                 try
                 {
                     await h2.InitAsync();
