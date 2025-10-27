@@ -133,18 +133,18 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             }
 
             string rawFullPath = $"{baseDir}/{extra}/{socket.Client.Path.Trim()}";
-            routerPath = $"{baseDir}/{extra}/{router}";
+            routerPath = router == null ? null : $"{baseDir}/{extra}/{router}";
             fullPath = Path.GetFullPath(CleanPath(rawFullPath));
             ccache[fullhost] = (fullPath, routerPath);
         }
 
         Console.WriteLine($"\x1b[35mfull path = {fullPath}\e[0m");
-        if (router != null) Console.WriteLine($"\x1b[35mrouter path = {routerPath}\e[0m");
+        if (routerPath != null) Console.WriteLine($"\x1b[35mrouter path = {routerPath}\e[0m");
 
         // int e = 0;
         // int a = 1 / e;
 
-        if (router != null)
+        if (routerPath != null)
         {
             FileSystemInfo info = new FileInfo(routerPath);
             if (!info.Exists) info = new DirectoryInfo(routerPath);
