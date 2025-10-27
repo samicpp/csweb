@@ -265,7 +265,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
     {
         // await socket.CloseAsync("directory");
         string last = path.Split("/").Last().ToLower();
-        var files = Directory.GetFiles(path).Select(f => f.Split("/").Last());
+        var files = Directory.GetFiles(path).Select(f => f.Replace("\\","/").Split("/").Last());
 
         string found = null;
         found = files.FirstOrDefault(f => f.StartsWith(last, StringComparison.CurrentCultureIgnoreCase));
