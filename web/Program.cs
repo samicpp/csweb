@@ -133,7 +133,10 @@ public class Program
         // };
         // using FakeHttpSocket test = new(testClient);
         // await Wrapper(test);
+        // ScriptNode node = new();
+        // await node.Execute("System.Console.WriteLine(\"hello world\");", test, ScriptType.CSharp);
 
+        Console.WriteLine("waiting untill server end");
         foreach (var task in tasks) await task;
 
         Console.WriteLine("server done");

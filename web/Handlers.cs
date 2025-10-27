@@ -12,6 +12,11 @@ using System.Text.Json;
 using System.Net;
 using System.Reflection;
 
+using Microsoft.DotNet.Interactive;
+using Microsoft.DotNet.Interactive.CSharp;
+using Microsoft.DotNet.Interactive.Events;
+using Microsoft.DotNet.Interactive.Commands;
+
 public class Handlers(IConfigurationRoot appconfig, string baseDir)
 {
     readonly string baseDir = baseDir;
@@ -29,6 +34,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         { "default", new() { { "dir", "." } } }
     };
 
+
     string CleanPath(string path)
     {
         var cpath = remove1.Replace(path, "");
@@ -37,6 +43,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         cpath = remove3.Replace(cpath, "");
         return cpath;
     }
+    
     public async Task Entry(IDualHttpSocket socket)
     {
         if (!socket.Client.IsValid)
@@ -91,7 +98,8 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
 
         string fullPath;
         string routerPath;
-        if (!fresh && ccache.TryGetValue(fullhost, out var path)) {
+        if (!fresh && ccache.TryGetValue(fullhost, out var path))
+        {
             fullPath = path.Item1;
             routerPath = path.Item2;
         }
@@ -108,7 +116,8 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                     (type == "end" && fullhost.EndsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
                     (type == "regex" && new Regex(k).IsMatch(fullhost)) ||
                     (type == "path-start" && socket.Client.Path.StartsWith(k, StringComparison.CurrentCultureIgnoreCase))
-                ){
+                )
+                {
                     extra = v.GetValueOrDefault("dir") ?? extra;
                     router = v.GetValueOrDefault("router") ?? router;
                     cmatch = true;
@@ -218,7 +227,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                 socket.StatusMessage = "Bad Request";
                 await socket.CloseAsync($"fix your client idk\n");
                 break;
-            
+
             case 404:
                 socket.Status = 404;
                 socket.StatusMessage = "Not Found";
@@ -250,6 +259,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                 break;
         }
     }
+    
     public async Task DirectoryHandler(IDualHttpSocket socket, string path, string normalPath)
     {
         // await socket.CloseAsync("directory");
@@ -310,14 +320,18 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                     Type type = assembly.GetType(tname);
                     IHttpPlugin plugin = (IHttpPlugin)Activator.CreateInstance(type);
                     await plugin.Init(path);
-                    await plugin.Handle(socket, normalPath ?? path);
                     if (plugin.Alive) plugins[path] = (info.LastWriteTime, plugin);
+                    await plugin.Handle(socket, normalPath ?? path);
                 }
             }
             catch (Exception e)
             {
                 await ErrorHandler(socket, path, 500, "", "plugin error", e.StackTrace);
             }
+        }
+        else if (name.EndsWith(".cs"))
+        {
+            // await cskernel.SetValueAsync("socket", socket, typeof(IDualHttpSocket));
         }
         else if (name.EndsWith(".redirect") || name.EndsWith(".link") || name.Contains(".var."))
         {

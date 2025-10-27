@@ -1,1 +1,0 @@
-dotnet run --project web/web.csproj
