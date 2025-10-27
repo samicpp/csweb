@@ -115,7 +115,8 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                     (type == "start" && fullhost.StartsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
                     (type == "end" && fullhost.EndsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
                     (type == "regex" && new Regex(k).IsMatch(fullhost)) ||
-                    (type == "path-start" && socket.Client.Path.StartsWith(k, StringComparison.CurrentCultureIgnoreCase))
+                    (type == "path-start" && socket.Client.Path.StartsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
+                    (type == "scheme" && k.Equals(socket.IsHttps ? "https" : "", StringComparison.CurrentCultureIgnoreCase)) 
                 )
                 {
                     extra = v.GetValueOrDefault("dir") ?? extra;
