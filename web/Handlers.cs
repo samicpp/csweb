@@ -125,7 +125,11 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                     break;
                 }
             }
-            if (!cmatch && config.TryGetValue("default", out var def)) extra = def.GetValueOrDefault("dir") ?? extra;
+            if (!cmatch && config.TryGetValue("default", out var def))
+            {
+                extra = def.GetValueOrDefault("dir") ?? extra;
+                router = def.GetValueOrDefault("router") ?? router;
+            }
 
             string rawFullPath = $"{baseDir}/{extra}/{socket.Client.Path.Trim()}";
             routerPath = $"{baseDir}/{extra}/{router}";
