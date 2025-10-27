@@ -268,8 +268,9 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
     public async Task DirectoryHandler(IDualHttpSocket socket, string path, string normalPath)
     {
         // await socket.CloseAsync("directory");
-        string last = path.Split("/").Last().ToLower();
-        var files = Directory.GetFiles(path).Select(f => f.Replace("\\","/").Split("/").Last());
+        // Console.WriteLine("directory " + path);
+        string last = path.Replace("\\", "/").Split("/").Last().ToLower();
+        var files = Directory.GetFiles(path).Select(f => { /*Console.WriteLine($"direntry {f}");*/ return f.Replace("\\", "/").Split('/').Last(); });
 
         string found = null;
         found = files.FirstOrDefault(f => f.StartsWith(last, StringComparison.CurrentCultureIgnoreCase));
