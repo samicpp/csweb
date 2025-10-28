@@ -87,11 +87,11 @@ public class Program
             Console.WriteLine("SIGINT received");
             sw.Stop();
             long nanos = sw.ElapsedTicks * (1_000_000_000 / Stopwatch.Frequency);
-            long micros = nanos / 1000;
-            long milis = micros / 1000;
-            long secs = milis / 1000;
-            long mins = secs / 60;
-            long hours = mins / 60;
+            long micros = sw.Elapsed.Microseconds;
+            long milis = sw.Elapsed.Milliseconds;
+            long secs = sw.Elapsed.Seconds;
+            long mins = sw.Elapsed.Minutes;
+            long hours = sw.Elapsed.Hours;
 
             Console.Write("\x1b[38;2;66;245;245m");
             Console.Write($"program finished after ");
