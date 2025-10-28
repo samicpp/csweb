@@ -84,7 +84,12 @@ public class H2CServer(IPEndPoint address)
                             foreach (var frame in frames)
                             {
                                 Console.Write($"h2c frame \x1b[36m{frame.type}\x1b[0m [ ");
-                                foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
+                                if (frame.raw.Length > 10) 
+                                {
+                                    foreach (byte b in frame.raw[..10]) Console.Write($"0x{b:X}, ");
+                                    Console.Write($"... ");
+                                }
+                                else foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
                                 Console.WriteLine("]");
                             }
 
@@ -294,8 +299,13 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
 
                             foreach (var frame in frames)
                             {
-                                Console.Write($"h2 frame \x1b[36m{frame.type}\x1b[0m [ ");
-                                foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
+                                Console.Write($"h2c frame \x1b[36m{frame.type}\x1b[0m [ ");
+                                if (frame.raw.Length > 10) 
+                                {
+                                    foreach (byte b in frame.raw[..10]) Console.Write($"0x{b:X}, ");
+                                    Console.Write($"... ");
+                                }
+                                else foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
                                 Console.WriteLine("]");
                             }
 
