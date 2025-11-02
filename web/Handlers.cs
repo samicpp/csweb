@@ -392,6 +392,15 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                 await Handle(socket, utext.Trim(), ninfo, normalPath);
             }
         }
+        else if (name.EndsWith(".br") /*|| name.EndsWith(".gz")*/)
+        {
+            dmt = MimeTypes.types.GetValueOrDefault(name.Replace(".br", "").Split(".").Last()) ?? "application/octet-stream";
+            socket.Compression = Compression.None;
+            socket.SetHeader("Content-Encoding", "br");
+            socket.SetHeader("Content-Type", dmt);
+            byte[] bytes = await File.ReadAllBytesAsync(path);
+            await socket.CloseAsync(bytes);
+        }
         else
         {
             socket.SetHeader("Content-Type", dmt);
