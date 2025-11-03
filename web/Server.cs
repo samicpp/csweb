@@ -306,6 +306,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
 
                             foreach (var frame in frames)
                             {
+                                if (frame.type == Http2FrameType.Ping && (frame.flags & 0x1) != 0) continue;
                                 Console.Write($"h2 frame \x1b[36m{frame.type}\x1b[0m [ ");
                                 if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10)
                                 {
