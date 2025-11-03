@@ -8,6 +8,13 @@
     <RootNamespace>Samicpp.Web</RootNamespace>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <RuntimeIdentifiers>win-x64;win-x86;linux-x64;linux-arm;linux-arm64;osx-x64;osx-arm64;android-arm64</RuntimeIdentifiers>
+    <PublishSingleFile>true</PublishSingleFile>
+    <!-- <PublishTrimmed>true</PublishTrimmed> -->
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+
   <ItemGroup>
     <!-- <ProjectReference Include="../dotnet-http/http/dotnet-http.csproj" /> -->
     <ProjectReference Include="../dotnet-http/dotnet-http.csproj" />

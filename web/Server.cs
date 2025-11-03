@@ -144,7 +144,7 @@ public class H2Server(IPEndPoint address)
                     await h2.InitAsync(); // Console.WriteLine("h2 init");
                     await h2.SendSettingsAsync(Http2Settings.Default()); // Console.WriteLine("h2 settings");
 
-                    while (true)
+                    while (h2.goaway == null)
                     {
                         try
                         {
@@ -295,11 +295,11 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                     await h2.InitAsync();
                     await h2.SendSettingsAsync(Http2Settings.Default());
 
-                    while (true)
+                    while (h2.goaway == null)
                     {
                         try
                         {
-                            await h2.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116,]);
+                            await h2.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
                             List<Http2Frame> frames = [await h2.ReadOneAsync()];
                             // List<Http2Frame> frames = await h2.ReadAllAsync();
                             var opened = await h2.HandleAsync(frames);
@@ -307,7 +307,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                             foreach (var frame in frames)
                             {
                                 Console.Write($"h2 frame \x1b[36m{frame.type}\x1b[0m [ ");
-                                if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10) 
+                                if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10)
                                 {
                                     foreach (byte b in frame.raw[..10]) Console.Write($"0x{b:X}, ");
                                     Console.Write($"... ");
@@ -326,6 +326,10 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                         {
                             break;
                         }
+                        // catch (SocketException e) when (e.SocketErrorCode == SocketError.ConnectionReset || e.SocketErrorCode == SocketError.Shutdown || e.SocketErrorCode == SocketError.ConnectionAborted)
+                        // {
+                        //     break;
+                        // }
                     }
                 }
                 catch (Exception e)
@@ -339,6 +343,10 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
             {
                 Console.WriteLine("couldnt handle alpn");
             }
+        }
+        catch (SocketException e) when (e.SocketErrorCode == SocketError.ConnectionReset || e.SocketErrorCode == SocketError.Shutdown || e.SocketErrorCode == SocketError.ConnectionAborted)
+        {
+            Console.WriteLine("\x1b[91msocket unexpectedly closed\e[0m");
         }
         catch (Exception e)
         {
