@@ -1,5 +1,7 @@
 namespace Samicpp.Web;
 
+using Compression = Samicpp.Http.CompressionType;
+
 using System;
 using System.IO;
 using System.Collections.Generic;
@@ -57,12 +59,26 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         {
             foreach (string s in encoding[0].Split(","))
             {
-                socket.Compression = s switch
+                switch(s)
                 {
-                    "gzip" => Compression.Gzip,
-                    "deflate" => Compression.Deflate,
-                    "br" => Compression.Brotli,
-                    _ => Compression.None,
+                    case "gzip":
+                        socket.Compression = Compression.Gzip;
+                        socket.SetHeader("Content-Encoding", "gzip");
+                        break;
+                    
+                    case "deflate":
+                        socket.Compression = Compression.Deflate;
+                        socket.SetHeader("Content-Encoding", "deflate");
+                        break;
+
+                    case "br":
+                        socket.Compression = Compression.Brotli;
+                        socket.SetHeader("Content-Encoding", "br");
+                        break;
+
+                    default:
+                        socket.Compression = Compression.None;
+                        break;
                 };
                 if (socket.Compression != Compression.None) break;
             }
