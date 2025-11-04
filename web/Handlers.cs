@@ -27,7 +27,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
     readonly Regex remove2 = new(@"\/\.{1,2}(?=\/|$)", RegexOptions.Compiled);
     readonly Regex collapse = new(@"\/+", RegexOptions.Compiled);
     readonly Regex remove3 = new(@"/$", RegexOptions.Compiled);
-    readonly Dictionary<string, (DateTime, string, byte[])> cache = [];
+    readonly Dictionary<string, (DateTime, string, byte[], Compression?)> cache = [];
     readonly Dictionary<string, (string, string)> ccache = [];
 
     DateTime configTime;
@@ -78,6 +78,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
 
                     default:
                         socket.Compression = Compression.None;
+                        socket.SetHeader("Content-Encoding", "identity");
                         break;
                 };
                 if (socket.Compression != Compression.None) break;
@@ -167,13 +168,27 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             if (info.Exists) info = info.ResolveLinkTarget(true) ?? info;
 
             bool cached = false;
-            if (cache.TryGetValue(fullhost, out var tcb))
+            if (cache.TryGetValue(fullhost, out var tcbe))
             {
-                var (t, c, b) = tcb;
+                var (t, c, b, e) = tcbe;
                 if (t == info.LastWriteTime)
                 {
                     Console.WriteLine("caching response");
                     socket.SetHeader("Content-Type", c);
+                    if (e != null)
+                    {
+                        var compression = e switch
+                        {
+                            Compression.None => "identity",
+                            Compression.Gzip => "gzip",
+                            Compression.Deflate => "deflate",
+                            Compression.Brotli => "br",
+                            _ => "identity",
+                        };
+                        socket.SetHeader("Content-Encoding", compression);
+                        socket.Compression = Compression.None;
+                    }
+
                     await socket.CloseAsync(b);
                     cached = true;
                 }
@@ -188,13 +203,27 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             if (info.Exists) info = info.ResolveLinkTarget(true) ?? info;
 
             bool cached = false;
-            if (cache.TryGetValue(fullhost, out var tcb))
+            if (cache.TryGetValue(fullhost, out var tcbe))
             {
-                var (t, c, b) = tcb;
+                var (t, c, b, e) = tcbe;
                 if (t == info.LastWriteTime)
                 {
                     Console.WriteLine("caching response");
                     socket.SetHeader("Content-Type", c);
+                    if (e != null)
+                    {
+                        var compression = e switch
+                        {
+                            Compression.None => "identity",
+                            Compression.Gzip => "gzip",
+                            Compression.Deflate => "deflate",
+                            Compression.Brotli => "br",
+                            _ => "identity",
+                        };
+                        socket.SetHeader("Content-Encoding", compression);
+                        socket.Compression = Compression.None;
+                    }
+
                     await socket.CloseAsync(b);
                     cached = true;
                 }
@@ -408,21 +437,27 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                 await Handle(socket, utext.Trim(), ninfo, normalPath);
             }
         }
-        else if (name.EndsWith(".br") /*|| name.EndsWith(".gz")*/)
+        else if (name.EndsWith(".br") || name.EndsWith(".gz"))
         {
-            dmt = MimeTypes.types.GetValueOrDefault(name.Replace(".br", "").Split(".").Last()) ?? "application/octet-stream";
+            var dts = name.Split(".");
+            var last = dts.ElementAtOrDefault(dts.Length - 2) ?? "";
+            var enc = dts.Last();
+
+            dmt = MimeTypes.types.GetValueOrDefault(last) ?? "application/octet-stream";
             socket.Compression = Compression.None;
-            socket.SetHeader("Content-Encoding", "br");
+            socket.SetHeader("Content-Encoding", enc == "br" ? "br" : "gzip");
+
             socket.SetHeader("Content-Type", dmt);
             byte[] bytes = await File.ReadAllBytesAsync(path);
             await socket.CloseAsync(bytes);
+            cache[fullhost] = (info.LastWriteTime, dmt, bytes, enc == "br" ? Compression.Brotli : Compression.Gzip);
         }
         else
         {
             socket.SetHeader("Content-Type", dmt);
             byte[] bytes = await File.ReadAllBytesAsync(path);
             await socket.CloseAsync(bytes);
-            cache[fullhost] = (info.LastWriteTime, dmt, bytes);
+            cache[fullhost] = (info.LastWriteTime, dmt, bytes, null);
         }
     }
 }
