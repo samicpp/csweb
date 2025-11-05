@@ -74,7 +74,7 @@ public class Program
 
             tls.alpn = alpn;
 
-            Console.WriteLine($"HTTPS serving on http://{address}");
+            Console.WriteLine($"HTTPS serving on https://{address}");
         }
 
 
