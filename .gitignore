@@ -60,3 +60,4 @@ nunit-*.xml
 /public/0/bigfile.bin
 /ssl
 /web/appsettings.json
+/csweb.service
