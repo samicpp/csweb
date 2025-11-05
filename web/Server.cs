@@ -78,25 +78,23 @@ public class H2CServer(IPEndPoint address)
 
                         while (h2c.goaway == null)
                         {
-                            List<Http2Frame> frames = [await h2c.ReadOneAsync()];
-                            var opened = await h2c.HandleAsync(frames);
+                            await h2c.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
+                            Http2Frame frame = await h2c.ReadOneAsync();
+                            var sid = await h2c.HandleAsync(frame);
 
-                            foreach (var frame in frames)
+                            if (frame.type == Http2FrameType.Ping && (frame.flags & 0x1) != 0) continue;
+                            Console.Write($"h2c frame \x1b[36m{frame.type}\x1b[0m [ ");
+                            if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10)
                             {
-                                Console.Write($"h2c frame \x1b[36m{frame.type}\x1b[0m [ ");
-                                if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10) 
-                                {
-                                    foreach (byte b in frame.raw[..10]) Console.Write($"0x{b:X}, ");
-                                    Console.Write($"... ");
-                                }
-                                else foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
-                                Console.WriteLine("]");
+                                foreach (byte b in frame.raw[..10]) Console.Write($"0x{b:X}, ");
+                                Console.Write($"... ");
                             }
+                            else foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
+                            Console.WriteLine("]");
 
-                            foreach (var sid in opened)
+                            if (sid != null)
                             {
-                                var stream = new Http2Stream(sid, h2c);
-
+                                Http2Stream stream = new((int)sid, h2c);
                                 var _d = handler(stream);
                             }
                         }
@@ -148,25 +146,23 @@ public class H2Server(IPEndPoint address)
                     {
                         try
                         {
-                            List<Http2Frame> frames = [await h2.ReadOneAsync()];
-                            var opened = await h2.HandleAsync(frames);
+                            await h2.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
+                            Http2Frame frame = await h2.ReadOneAsync();
+                            var sid = await h2.HandleAsync(frame);
 
-                            foreach (var frame in frames)
+                            if (frame.type == Http2FrameType.Ping && (frame.flags & 0x1) != 0) continue;
+                            Console.Write($"h2 frame \x1b[36m{frame.type}\x1b[0m [ ");
+                            if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10)
                             {
-                                Console.Write($"h2 frame \x1b[36m{frame.type}\x1b[0m [ ");
-                                if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10) 
-                                {
-                                    foreach (byte b in frame.raw[..10]) Console.Write($"0x{b:X}, ");
-                                    Console.Write($"... ");
-                                }
-                                else foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
-                                Console.WriteLine("]");
+                                foreach (byte b in frame.raw[..10]) Console.Write($"0x{b:X}, ");
+                                Console.Write($"... ");
                             }
+                            else foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
+                            Console.WriteLine("]");
 
-                            foreach (var sid in opened)
+                            if (sid != null)
                             {
-                                Http2Stream stream = new(sid, h2);
-
+                                Http2Stream stream = new((int)sid, h2);
                                 var _d = handler(stream);
                             }
                         }
@@ -300,31 +296,29 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                         try
                         {
                             await h2.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
-                            List<Http2Frame> frames = [await h2.ReadOneAsync()];
+                            Http2Frame frame = await h2.ReadOneAsync();
                             // List<Http2Frame> frames = await h2.ReadAllAsync();
-                            var opened = await h2.HandleAsync(frames);
+                            var sid = await h2.HandleAsync(frame);
 
-                            foreach (var frame in frames)
+                            if (frame.type == Http2FrameType.Ping && (frame.flags & 0x1) != 0) continue;
+                            Console.Write($"h2 frame \x1b[36m{frame.type}\x1b[0m [ ");
+                            if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10)
                             {
-                                if (frame.type == Http2FrameType.Ping && (frame.flags & 0x1) != 0) continue;
-                                Console.Write($"h2 frame \x1b[36m{frame.type}\x1b[0m [ ");
-                                if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10)
-                                {
-                                    foreach (byte b in frame.raw[..10]) Console.Write($"0x{b:X}, ");
-                                    Console.Write($"... ");
-                                }
-                                else foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
-                                Console.WriteLine("]");
+                                foreach (byte b in frame.raw[..10]) Console.Write($"0x{b:X}, ");
+                                Console.Write($"... ");
                             }
+                            else foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
+                            Console.WriteLine("]");
 
-                            foreach (var sid in opened)
+                            if (sid != null)
                             {
-                                Http2Stream stream = new(sid, h2);
+                                Http2Stream stream = new((int)sid, h2);
                                 var _d = handler(stream);
                             }
                         }
                         catch (HttpException.ConnectionClosed)
                         {
+                            h2.goaway ??= new Http2Frame();
                             break;
                         }
                         // catch (SocketException e) when (e.SocketErrorCode == SocketError.ConnectionReset || e.SocketErrorCode == SocketError.Shutdown || e.SocketErrorCode == SocketError.ConnectionAborted)
