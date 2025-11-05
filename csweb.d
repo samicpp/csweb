@@ -7,6 +7,8 @@ Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/bin"
 WorkingDirectory=/opt/csweb
 
 ExecStart=dotnet run --project web/web.csproj
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 
 Restart=on-failure
 RestartSec=2
