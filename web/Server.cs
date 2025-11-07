@@ -325,7 +325,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                             // h2.goaway ??= new Http2Frame();
                             break;
                         }
-                        catch (SocketException e) when (e.SocketErrorCode == SocketError.ConnectionReset || e.SocketErrorCode == SocketError.Shutdown || e.SocketErrorCode == SocketError.ConnectionAborted || e.ErrorCode == 32 /* Broken Pipe */)
+                        catch (IOException ioe) when (ioe.InnerException is SocketException e && (e.SocketErrorCode == SocketError.ConnectionReset || e.SocketErrorCode == SocketError.Shutdown || e.SocketErrorCode == SocketError.ConnectionAborted || e.ErrorCode == 32 /* Broken Pipe */))
                         {
                             Console.WriteLine("\e[31mconnection ended abruptly\e[0m");
                             break;
