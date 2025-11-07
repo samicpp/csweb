@@ -34,6 +34,7 @@ public class Program
         var p12pass = config["p12-pass"];
         var alpn = config["alpn"].Split(";").Select(a => new SslApplicationProtocol(a.Trim())).ToList();
 
+        Console.WriteLine("csweb v2.6.8");
         Console.WriteLine($"cwd = {Directory.GetCurrentDirectory()}");
 
         List<Task> tasks = [];
