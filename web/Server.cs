@@ -295,8 +295,8 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                     {
                         try
                         {
-                            await h2.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
                             Http2Frame frame = await h2.ReadOneAsync();
+                            await h2.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
                             // List<Http2Frame> frames = await h2.ReadAllAsync();
                             var sid = await h2.HandleAsync(frame);
 
