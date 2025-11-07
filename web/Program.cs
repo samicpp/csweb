@@ -34,7 +34,7 @@ public class Program
         var p12pass = config["p12-pass"];
         var alpn = config["alpn"].Split(";").Select(a => new SslApplicationProtocol(a.Trim())).ToList();
 
-        Console.WriteLine("csweb v2.6.8");
+        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.6.8\e[0m");
         Console.WriteLine($"cwd = {Directory.GetCurrentDirectory()}");
 
         List<Task> tasks = [];
@@ -46,7 +46,7 @@ public class Program
             H2CServer tcp = new(address);
             tasks.Add(tcp.Serve(Wrapper));
 
-            Console.WriteLine($"HTTP/1.1 (h2c) serving on http://{address}");
+            Console.WriteLine($"\e[38;2;235;211;52mHTTP/1.1 (h2c) serving on http://{address}\e[0m");
         }
         foreach (var addr in O9addrs)
         {
@@ -55,7 +55,7 @@ public class Program
             O9Server tcp = new(address);
             tasks.Add(tcp.Serve(Wrapper));
 
-            Console.WriteLine($"HTTP/0.9 serving on http://{address}");
+            Console.WriteLine($"\e[38;2;235;52;52mHTTP/0.9 serving on http://{address}\e[0m");
         }
         foreach (var addr in h2addrs)
         {
@@ -64,7 +64,7 @@ public class Program
             H2Server tcp = new(address);
             tasks.Add(tcp.Serve(Wrapper));
 
-            Console.WriteLine($"HTTP/2 serving on http://{address}");
+            Console.WriteLine($"\e[38;2;235;143;52mHTTP/2 serving on http://{address}\e[0m"); // direct http2 rarely supported, hence the orange color
         }
         foreach (var addr in ssladdrs)
         {
@@ -75,7 +75,7 @@ public class Program
 
             tls.alpn = alpn;
 
-            Console.WriteLine($"HTTPS serving on https://{address}");
+            Console.WriteLine($"\e[38;2;76;235;52mHTTPS serving on https://{address}\e[0m");
         }
 
 
