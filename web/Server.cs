@@ -295,8 +295,12 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                     {
                         try
                         {
+                            
                             Http2Frame frame = await h2.ReadOneAsync();
                             await h2.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
+                            // catch (IOException)
+                            // {
+                            // }
                             // List<Http2Frame> frames = await h2.ReadAllAsync();
                             var sid = await h2.HandleAsync(frame);
 
@@ -318,13 +322,14 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                         }
                         catch (HttpException.ConnectionClosed)
                         {
-                            h2.goaway ??= new Http2Frame();
+                            // h2.goaway ??= new Http2Frame();
                             break;
                         }
-                        // catch (SocketException e) when (e.SocketErrorCode == SocketError.ConnectionReset || e.SocketErrorCode == SocketError.Shutdown || e.SocketErrorCode == SocketError.ConnectionAborted)
-                        // {
-                        //     break;
-                        // }
+                        catch (SocketException e) when (e.SocketErrorCode == SocketError.ConnectionReset || e.SocketErrorCode == SocketError.Shutdown || e.SocketErrorCode == SocketError.ConnectionAborted || e.ErrorCode == 32 /* Broken Pipe */)
+                        {
+                            Console.WriteLine("\e[31mconnection ended abruptly\e[0m");
+                            break;
+                        }
                     }
                 }
                 catch (Exception e)
