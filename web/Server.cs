@@ -83,14 +83,15 @@ public class H2CServer(IPEndPoint address)
                             var sid = await h2c.HandleAsync(frame);
 
                             if (frame.type == Http2FrameType.Ping && (frame.flags & 0x1) != 0) continue;
-                            Console.Write($"h2c frame \x1b[36m{frame.type}\x1b[0m [ ");
+                            string dump = $"h2 frame \x1b[36m{frame.type}\x1b[0m [ ";
                             if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10)
                             {
-                                foreach (byte b in frame.raw[..10]) Console.Write($"0x{b:X}, ");
-                                Console.Write($"... ");
+                                foreach (byte b in frame.raw[..10]) dump += $"0x{b:X}, ";
+                                dump += "... ";
                             }
-                            else foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
-                            Console.WriteLine("]");
+                            else foreach (byte b in frame.raw) dump += $"0x{b:X}, ";
+                            dump += "]";
+                            Console.WriteLine(dump);
 
                             if (sid != null)
                             {
@@ -101,6 +102,7 @@ public class H2CServer(IPEndPoint address)
                     }
                     else
                     {
+                        socket.SetHeader("Connection", "close");
                         await handler(socket);
                     }
                 }
@@ -151,14 +153,15 @@ public class H2Server(IPEndPoint address)
                             var sid = await h2.HandleAsync(frame);
 
                             if (frame.type == Http2FrameType.Ping && (frame.flags & 0x1) != 0) continue;
-                            Console.Write($"h2 frame \x1b[36m{frame.type}\x1b[0m [ ");
+                            string dump = $"h2 frame \x1b[36m{frame.type}\x1b[0m [ ";
                             if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10)
                             {
-                                foreach (byte b in frame.raw[..10]) Console.Write($"0x{b:X}, ");
-                                Console.Write($"... ");
+                                foreach (byte b in frame.raw[..10]) dump += $"0x{b:X}, ";
+                                dump += "... ";
                             }
-                            else foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
-                            Console.WriteLine("]");
+                            else foreach (byte b in frame.raw) dump += $"0x{b:X}, ";
+                            dump += "]";
+                            Console.WriteLine(dump);
 
                             if (sid != null)
                             {
@@ -281,6 +284,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
             else if (alpn == "http/1.1")
             {
                 using Http1Socket sock = new(tls, end);
+                sock.SetHeader("Connection", "close");
                 await handler(sock);
             }
             else if (alpn == "h2")
@@ -305,14 +309,15 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                             var sid = await h2.HandleAsync(frame);
 
                             if (frame.type == Http2FrameType.Ping && (frame.flags & 0x1) != 0) continue;
-                            Console.Write($"h2 frame \x1b[36m{frame.type}\x1b[0m [ ");
+                            string dump = $"h2 frame \x1b[36m{frame.type}\x1b[0m [ ";
                             if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10)
                             {
-                                foreach (byte b in frame.raw[..10]) Console.Write($"0x{b:X}, ");
-                                Console.Write($"... ");
+                                foreach (byte b in frame.raw[..10]) dump += $"0x{b:X}, ";
+                                dump += "... ";
                             }
-                            else foreach (byte b in frame.raw) Console.Write($"0x{b:X}, ");
-                            Console.WriteLine("]");
+                            else foreach (byte b in frame.raw) dump += $"0x{b:X}, ";
+                            dump += "]";
+                            Console.WriteLine(dump);
 
                             if (sid != null)
                             {

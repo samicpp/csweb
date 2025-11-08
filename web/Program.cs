@@ -34,7 +34,7 @@ public class Program
         var p12pass = config["p12-pass"];
         var alpn = config["alpn"].Split(";").Select(a => new SslApplicationProtocol(a.Trim())).ToList();
 
-        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.6.12\e[0m");
+        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.6.13\e[0m");
         Console.WriteLine($"cwd = {Directory.GetCurrentDirectory()}");
 
         List<Task> tasks = [];
@@ -94,27 +94,26 @@ public class Program
             long mins = sw.Elapsed.Minutes;
             long hours = sw.Elapsed.Hours;
 
-            Console.Write("\x1b[38;2;66;245;245m");
-            Console.Write($"program finished after ");
+            string timestamp = "\x1b[38;2;66;245;245mprogram finished after ";
 
             if (hours > 0)
             {
-                Console.Write($"{hours}h ");
+                timestamp += $"{hours}h ";
             }
             if (mins > 0)
             {
-                Console.Write($"{mins % 60}m ");
+                timestamp += $"{mins % 60}m ";
             }
             if (secs > 0)
             {
-                Console.Write($"{secs % 60}s ");
+                timestamp += $"{secs % 60}s ";
             }
             if (milis > 0)
             {
-                Console.Write($"{milis % 1000}ms ");
+                timestamp += $"{milis % 1000}ms ";
             }
-            Console.WriteLine($"\x1b[38;2;117;117;117m{micros % 1000}us {nanos % 1000}ns\e[0m");
-            
+            timestamp += $"\x1b[38;2;117;117;117m{micros % 1000}us {nanos % 1000}ns\e[0m";
+            Console.WriteLine(timestamp);
             
 
 
@@ -153,37 +152,39 @@ public class Program
 
             Console.WriteLine("connection established using " + client.Version);
 
-            Console.WriteLine("\x1b[38;2;52;128;235m");
+            string dump = "\x1b[38;2;52;128;235m";
             // Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("IHttpClient {");
-            Console.WriteLine($"   IsValid: {client.IsValid}");
-            Console.WriteLine($"   Host: {client.Host}");
-            Console.WriteLine($"   Method: {client.Method}");
-            Console.WriteLine($"   Path: {client.Path.Trim()}");
-            Console.WriteLine($"   Version: {client.Version}");
-            Console.WriteLine($"   HeadersComplete: {client.HeadersComplete}");
-            Console.WriteLine($"   BodyComplete: {client.BodyComplete}");
-            Console.WriteLine($"   Headers.Count: {client.Headers.Count}");
-            Console.WriteLine($"   Scheme: {(conn.IsHttps ? "https" : "http")}");
-            Console.WriteLine($"   Secure: {conn.IsHttps}");
-            Console.WriteLine("}");
-            Console.ResetColor();
+            dump += "IHttpClient {\n";
+            dump += $"   IsValid: {client.IsValid}\n";
+            dump += $"   Host: {client.Host}\n";
+            dump += $"   Method: {client.Method}\n";
+            dump += $"   Path: {client.Path.Trim()}\n";
+            dump += $"   Version: {client.Version}\n";
+            dump += $"   HeadersComplete: {client.HeadersComplete}\n";
+            dump += $"   BodyComplete: {client.BodyComplete}\n";
+            dump += $"   Headers.Count: {client.Headers.Count}\n";
+            dump += $"   Scheme: {(conn.IsHttps ? "https" : "http")}\n";
+            dump += $"   Secure: {conn.IsHttps}\n";
+            dump += "}\e[0m";
+            Console.WriteLine(dump);
 
-            Console.WriteLine("\x1b[38;2;52;177;235m");
+            string hdump = "\x1b[38;2;52;177;235m";
             // Console.ForegroundColor = ConsoleColor.DarkCyan;
-            if (client.Headers.Count <= 0) Console.WriteLine("IHttpClient.Headers {}");
+            if (client.Headers.Count <= 0) hdump += "IHttpClient.Headers {}";
             else
             {
-                Console.WriteLine("IHttpClient.Headers {");
+                hdump += "IHttpClient.Headers {\n";
                 foreach (var (header, vs) in client.Headers)
                 {
-                    Console.Write($"   {header}: [ ");
-                    foreach (var value in vs) Console.Write($"{value}, ");
-                    Console.WriteLine("]");
+                    hdump += $"   {header}: [ ";
+                    foreach (var value in vs) hdump += $"{value}, ";
+                    hdump += "]\n";
                 }
-                Console.WriteLine("}");
+
+                hdump += "}\n";
             }
-            Console.ResetColor();
+            hdump += "\e[0m";
+            Console.WriteLine(hdump);
 
             // throw new Exception("");
 
@@ -198,8 +199,7 @@ public class Program
         finally
         {
             sw.Stop();
-            Console.Write("\x1b[38;2;245;182;66m");
-            Console.WriteLine($"request finished after {sw.ElapsedTicks * (1_000_000.0 / Stopwatch.Frequency) / 1_000}ms\x1b[0m");
+            Console.WriteLine($"\x1b[38;2;245;182;66mrequest finished after {sw.ElapsedTicks * (1_000_000.0 / Stopwatch.Frequency) / 1_000}ms\x1b[0m");
             // await conn.DisposeAsync();
         }
     }
