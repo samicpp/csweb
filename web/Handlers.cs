@@ -405,6 +405,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                 { "%HOST%", socket.Client.Host },
                 { "%SCHEME%", socket.IsHttps ? "https" : "http" },
                 { "%BASE_DIR%", baseDir },
+                { "%USER_AGENT%", socket.Client.Headers.GetValueOrDefault("user-agent")?[0] ?? "null" }
             };
 
             foreach (var (k, v) in vars)
