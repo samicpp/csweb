@@ -84,9 +84,9 @@ public class H2CServer(IPEndPoint address)
 
                             if (frame.type == Http2FrameType.Ping && (frame.flags & 0x1) != 0) continue;
                             string dump = $"h2 frame \x1b[36m{frame.type}\x1b[0m [ ";
-                            if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10)
+                            if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 29)
                             {
-                                foreach (byte b in frame.raw[..10]) dump += $"0x{b:X}, ";
+                                foreach (byte b in frame.raw[..29]) dump += $"0x{b:X}, ";
                                 dump += "... ";
                             }
                             else foreach (byte b in frame.raw) dump += $"0x{b:X}, ";
@@ -154,9 +154,9 @@ public class H2Server(IPEndPoint address)
 
                             if (frame.type == Http2FrameType.Ping && (frame.flags & 0x1) != 0) continue;
                             string dump = $"h2 frame \x1b[36m{frame.type}\x1b[0m [ ";
-                            if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10)
+                            if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 29)
                             {
-                                foreach (byte b in frame.raw[..10]) dump += $"0x{b:X}, ";
+                                foreach (byte b in frame.raw[..29]) dump += $"0x{b:X}, ";
                                 dump += "... ";
                             }
                             else foreach (byte b in frame.raw) dump += $"0x{b:X}, ";
@@ -310,9 +310,9 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
 
                             if (frame.type == Http2FrameType.Ping && (frame.flags & 0x1) != 0) continue;
                             string dump = $"h2 frame \x1b[36m{frame.type}\x1b[0m [ ";
-                            if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 10)
+                            if ((frame.type == Http2FrameType.Data || frame.type == Http2FrameType.Headers || frame.type == Http2FrameType.PushPromise) && frame.raw.Length > 29)
                             {
-                                foreach (byte b in frame.raw[..10]) dump += $"0x{b:X}, ";
+                                foreach (byte b in frame.raw[..29]) dump += $"0x{b:X}, ";
                                 dump += "... ";
                             }
                             else foreach (byte b in frame.raw) dump += $"0x{b:X}, ";

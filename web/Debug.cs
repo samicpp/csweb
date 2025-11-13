@@ -20,7 +20,7 @@ public class Debug
     {
         while (true)
         {
-            await Task.Delay(120000);
+            await Task.Delay(120_000);
             Console.WriteLine($"total of {Program.Visits} visits");
         }
     }
@@ -30,6 +30,7 @@ public class Debug
         config = conf;
 
         var _ = Timer();
+        _ = Visits();
 
     }
 }
