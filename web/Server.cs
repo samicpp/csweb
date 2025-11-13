@@ -346,7 +346,11 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
             }
             else
             {
-                Console.WriteLine("couldnt handle alpn");
+                Console.WriteLine("couldnt handle alpn, defaulting to HTTP/1.1");
+                
+                using Http1Socket sock = new(tls, end);
+                sock.SetHeader("Connection", "close");
+                await handler(sock);
             }
         }
         catch (SocketException e) when (e.SocketErrorCode == SocketError.ConnectionReset || e.SocketErrorCode == SocketError.Shutdown || e.SocketErrorCode == SocketError.ConnectionAborted)
