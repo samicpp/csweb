@@ -150,7 +150,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                     (type == "end" && fullhost.EndsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
                     (type == "regex" && new Regex(k).IsMatch(fullhost)) ||
                     (type == "path-start" && socket.Client.Path.StartsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
-                    (type == "scheme" && k.Equals(socket.IsHttps ? "https" : "", StringComparison.CurrentCultureIgnoreCase))  ||
+                    (type == "scheme" && k.Equals(socket.IsHttps ? "https" : "http", StringComparison.CurrentCultureIgnoreCase))  ||
                     (type == "protocol" && k.Equals(socket.Client.Version, StringComparison.CurrentCultureIgnoreCase)) 
                 )
                 {
@@ -167,7 +167,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             }
 
             string rawFullPath = $"{baseDir}/{extra}/{socket.Client.Path.Trim()}";
-            routerPath = router == null ? null : $"{baseDir}/{extra}/{router}";
+            routerPath = router == null ? null : Path.GetFullPath($"{baseDir}/{extra}/{router}");
             fullPath = Path.GetFullPath(CleanPath(rawFullPath));
             ccache[fullhost] = (fullPath, routerPath);
         }
