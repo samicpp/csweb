@@ -34,7 +34,7 @@ public class Program
         var p12pass = config["p12-pass"];
         var alpn = config["alpn"].Split(";").Select(a => new SslApplicationProtocol(a.Trim())).ToList();
 
-        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.6.14\e[0m");
+        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.6.15\e[0m");
         Console.WriteLine($"cwd = {Directory.GetCurrentDirectory()}");
 
         List<Task> tasks = [];
@@ -124,6 +124,7 @@ public class Program
 
 
         hands = new(config, config["serve-dir"]);
+        tasks.Add(Debug.Init(config));
 
         // HttpClient testClient = new()
         // {
@@ -142,11 +143,15 @@ public class Program
         Console.WriteLine("server done");
     }
 
+    static int counter = 0;
+    public static int Visits { get => counter; }
+
     public static async Task Wrapper(IDualHttpSocket conn)
     {
         var sw = Stopwatch.StartNew();
         try
         {
+            counter++;
             var client = conn.Client;
             while (!client.HeadersComplete) client = await conn.ReadClientAsync();
 

@@ -35,6 +35,8 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
     {
         { "default", new() { { "dir", "." } } }
     };
+    DateTime eheadersTime;
+    Dictionary<string, string> eheaders = [];
 
 
     string CleanPath(string path)
@@ -113,6 +115,21 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             }
         }
 
+        FileInfo hinfo = new($"{baseDir}/headers.json");
+        if (hinfo.Exists && hinfo.LastWriteTime != eheadersTime)
+        {
+            eheadersTime = hinfo.LastWriteTime;
+            var text = await File.ReadAllBytesAsync($"{baseDir}/headers.json");
+            try
+            {
+                eheaders = JsonSerializer.Deserialize<Dictionary<string, string>>(text);
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("invalid extra headers file");
+            }
+        }
+
         string fullPath;
         string routerPath;
         if (!fresh && ccache.TryGetValue(fullhost, out var path))
@@ -158,6 +175,10 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         Console.WriteLine($"\x1b[35mfull path = {fullPath}\e[0m");
         if (routerPath != null) Console.WriteLine($"\x1b[35mrouter path = {routerPath}\e[0m");
 
+        foreach (var (k,v) in eheaders)
+        {
+            socket.SetHeader(k, v);
+        }
         // int e = 0;
         // int a = 1 / e;
 
