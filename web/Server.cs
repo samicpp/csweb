@@ -110,7 +110,7 @@ public class H2CServer(IPEndPoint address)
                 {
                     Console.WriteLine("\x1b[91mserver error occured");
                     Console.WriteLine(e);
-                    Console.ResetColor();
+                    Console.WriteLine("\e[0m");
                 }
             });
         }
@@ -179,7 +179,7 @@ public class H2Server(IPEndPoint address)
                 {
                     Console.WriteLine("\x1b[91mserver error occured");
                     Console.WriteLine(e);
-                    Console.ResetColor();
+                    Console.WriteLine("\e[0m");
                 }
 
             });
@@ -270,7 +270,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
             {
                 Console.WriteLine("\x1b[91mtls authentication error occured");
                 Console.WriteLine(e);
-                Console.ResetColor();
+                Console.WriteLine("\e[0m");
             }
             using TlsSocket tls = new(sslStream);
 
@@ -341,13 +341,13 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                 {
                     Console.WriteLine("\x1b[91mserver error occured");
                     Console.WriteLine(e);
-                    Console.ResetColor();
+                    Console.WriteLine("\e[0m");
                 }
             }
             else
             {
                 Console.WriteLine("couldnt handle alpn, defaulting to HTTP/1.1");
-                
+
                 using Http1Socket sock = new(tls, end);
                 sock.SetHeader("Connection", "close");
                 await handler(sock);
@@ -361,7 +361,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
         {
             Console.WriteLine("\x1b[91mtls error occured");
             Console.WriteLine(e);
-            Console.ResetColor();
+            Console.WriteLine("\e[0m");
         }
     }
 }

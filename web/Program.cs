@@ -34,7 +34,7 @@ public class Program
         var p12pass = config["p12-pass"];
         var alpn = config["alpn"].Split(";").Select(a => new SslApplicationProtocol(a.Trim())).ToList();
 
-        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.6.17\e[0m");
+        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.6.18\e[0m");
         Console.WriteLine($"cwd = {Directory.GetCurrentDirectory()}");
 
         List<Task> tasks = [];
@@ -199,7 +199,7 @@ public class Program
         {
             Console.WriteLine("\x1b[91mwrapper error occured");
             Console.WriteLine(e);
-            Console.ResetColor();
+            Console.WriteLine("\e[0m");
         }
         finally
         {
