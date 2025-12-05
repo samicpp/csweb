@@ -30,6 +30,6 @@ public class Debug
 
         var _ = Timer();
         _ = Visits();
-
+        await Task.CompletedTask;
     }
 }

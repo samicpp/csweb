@@ -32,6 +32,7 @@ public class AppConfig
     [ConfigurationKeyName("alpn")] public string[] Alpn { get; init; } = [ "h2", "http/1.1" ];
     [ConfigurationKeyName("fallback-alpn")] public string FallbackAlpn { get; init; } = null;
 
+    [ConfigurationKeyName("cwd")] public string WorkDir { get; init; } = null;
     [ConfigurationKeyName("serve-dir")] public string ServeDir { get; init; } = "./";
     [ConfigurationKeyName("backlog")] public int Backlog { get; init; } = 10;
 
@@ -67,7 +68,19 @@ public class AppConfig
 
 public class Program
 {
-    readonly static AppConfig config = new ConfigurationBuilder().AddJsonFile("appsettings.json", true, true).Build().Get<AppConfig>() ?? AppConfig.Default();
+    static AppConfig TryConfig()
+    {
+        try
+        {
+            return new ConfigurationBuilder().AddJsonFile("appsettings.json", true, true).Build().Get<AppConfig>() ?? AppConfig.Default();
+        }
+        catch (Exception)
+        {
+            Console.WriteLine($"\e[4;93;40m{Directory.GetCurrentDirectory()}/appsettings.json is invalid\e[0m");
+            return AppConfig.Default();
+        }
+    }
+    readonly static AppConfig config = TryConfig();
 
     readonly static Handlers hands = new(config);
     public static async Task Main()
@@ -80,8 +93,9 @@ public class Program
         // var p12cert = config["p12-cert"];
         // var p12pass = config["p12-pass"];
         var alpn = config.Alpn.Select(a => new SslApplicationProtocol(a.Trim())).ToList();
+        if (config.WorkDir != null) Directory.SetCurrentDirectory(config.WorkDir);
 
-        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.7.1\e[0m");
+        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.7.2\e[0m");
         Console.WriteLine($"cwd = {Directory.GetCurrentDirectory()}");
 
         List<Task> tasks = [];
