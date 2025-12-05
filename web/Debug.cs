@@ -2,11 +2,10 @@ namespace Samicpp.Web;
 
 using System;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
 
 public class Debug
 {
-    static IConfigurationRoot config;
+    static AppConfig config;
 
     public static async Task Timer()
     {
@@ -25,7 +24,7 @@ public class Debug
         }
     }
 
-    public static async Task Init(IConfigurationRoot conf)
+    public static async Task Init(AppConfig conf)
     {
         config = conf;
 

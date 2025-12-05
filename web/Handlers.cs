@@ -19,10 +19,10 @@ using Microsoft.DotNet.Interactive.CSharp;
 using Microsoft.DotNet.Interactive.Events;
 using Microsoft.DotNet.Interactive.Commands;
 
-public class Handlers(IConfigurationRoot appconfig, string baseDir)
+public class Handlers(AppConfig appconfig)
 {
-    readonly string baseDir = baseDir;
-    readonly IConfigurationRoot appconfig = appconfig;
+    string BaseDir { get => appconfig.ServeDir; }
+    readonly AppConfig appconfig = appconfig;
     readonly Regex remove1 = new(@"(\?.*$)|(\#.*$)|(\:.*$)", RegexOptions.Compiled);
     readonly Regex remove2 = new(@"\/\.{1,2}(?=\/|$)", RegexOptions.Compiled);
     readonly Regex collapse = new(@"\/+", RegexOptions.Compiled);
@@ -97,11 +97,11 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
         bool fresh = false;
         string extra = "";
         string router = null;
-        FileInfo cinfo = new($"{baseDir}/routes.json");
+        FileInfo cinfo = new($"{BaseDir}/routes.json");
         if (cinfo.Exists && cinfo.LastWriteTime != configTime)
         {
             configTime = cinfo.LastWriteTime;
-            var text = await File.ReadAllBytesAsync($"{baseDir}/routes.json");
+            var text = await File.ReadAllBytesAsync($"{BaseDir}/routes.json");
             // Console.WriteLine("read routes.json");
             // Console.WriteLine(text);
             try
@@ -115,11 +115,11 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
             }
         }
 
-        FileInfo hinfo = new($"{baseDir}/headers.json");
+        FileInfo hinfo = new($"{BaseDir}/headers.json");
         if (hinfo.Exists && hinfo.LastWriteTime != eheadersTime)
         {
             eheadersTime = hinfo.LastWriteTime;
-            var text = await File.ReadAllBytesAsync($"{baseDir}/headers.json");
+            var text = await File.ReadAllBytesAsync($"{BaseDir}/headers.json");
             try
             {
                 eheaders = JsonSerializer.Deserialize<Dictionary<string, string>>(text);
@@ -166,8 +166,8 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                 router = def.GetValueOrDefault("router") ?? router;
             }
 
-            string rawFullPath = $"{baseDir}/{extra}/{socket.Client.Path.Trim()}";
-            routerPath = router == null ? null : Path.GetFullPath($"{baseDir}/{extra}/{router}");
+            string rawFullPath = $"{BaseDir}/{extra}/{socket.Client.Path.Trim()}";
+            routerPath = router == null ? null : Path.GetFullPath($"{BaseDir}/{extra}/{router}");
             fullPath = Path.GetFullPath(CleanPath(rawFullPath));
             ccache[fullhost] = (fullPath, routerPath);
         }
@@ -425,7 +425,7 @@ public class Handlers(IConfigurationRoot appconfig, string baseDir)
                 { "%PATH%", socket.Client.Path },
                 { "%HOST%", socket.Client.Host },
                 { "%SCHEME%", socket.IsHttps ? "https" : "http" },
-                { "%BASE_DIR%", baseDir },
+                { "%BASE_DIR%", BaseDir },
                 { "%USER_AGENT%", socket.Client.Headers.GetValueOrDefault("user-agent")?[0] ?? "null" }
             };
 

@@ -17,29 +17,74 @@ using System.Security.Cryptography.X509Certificates;
 using System.Linq;
 using System.Net.Security;
 using Samicpp.Http.Debug;
+using Microsoft.DotNet.Interactive.Formatting;
+using System.Security.Cryptography;
+
+public class AppConfig
+{
+    [ConfigurationKeyName("h2c-address")] public string[] H2cAddress { get; init; } = [];
+    [ConfigurationKeyName("09-address")] public string[] O9Address { get; init; } = [];
+    [ConfigurationKeyName("h2-address")] public string[] H2Address { get; init; } = [];
+    [ConfigurationKeyName("ssl-address")] public string[] SslAddress { get; init; } = [];
+
+    [ConfigurationKeyName("p12-cert")] public string P12Cert { get; init; } = null;
+    [ConfigurationKeyName("p12-pass")] public string P12pass { get; init; } = null;
+    [ConfigurationKeyName("alpn")] public string[] Alpn { get; init; } = [ "h2", "http/1.1" ];
+
+    [ConfigurationKeyName("serve-dir")] public string ServeDir { get; init; } = "./";
+
+
+    public static AppConfig Default() => new() { H2cAddress = [ "0.0.0.0:8080" ], SslAddress = [ "0.0.0.0:4433" ], ServeDir = "./public" };
+    public static X509Certificate2 SelfSigned()
+    {
+        // using RSA rsa = RSA.Create(2048);
+        using ECDsa ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+
+        X500DistinguishedName subject = new("CN=localhost");
+        CertificateRequest req = new(subject, ecdsa, HashAlgorithmName.SHA256);
+        
+        req.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, false));
+        req.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, true));
+        req.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension([new Oid("1.3.6.1.5.5.7.3.1")], false));
+
+        SubjectAlternativeNameBuilder sanBuilder = new();
+        sanBuilder.AddDnsName("*.localhost");
+        sanBuilder.AddDnsName("localhost");
+        sanBuilder.AddDnsName("127.0.0.1");
+        sanBuilder.AddDnsName("::1");
+        req.CertificateExtensions.Add(sanBuilder.Build());
+
+        X509Certificate2 cert = req.CreateSelfSigned(
+            DateTimeOffset.UtcNow.AddDays(-1),
+            DateTimeOffset.UtcNow.AddYears(1)
+        );
+
+        return X509CertificateLoader.LoadPkcs12(cert.Export(X509ContentType.Pfx, ""), "");
+    }
+}
 
 public class Program
 {
-    readonly static IConfigurationRoot config = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+    readonly static AppConfig config = new ConfigurationBuilder().AddJsonFile("appsettings.json", true, true).Build().Get<AppConfig>() ?? AppConfig.Default();
 
-    static Handlers hands;
+    readonly static Handlers hands = new(config);
     public static async Task Main()
     {
         var sw = Stopwatch.StartNew();
-        var addrs = config["h2c-address"].Split(";");
-        var O9addrs = config["09-address"].Split(";");
-        var h2addrs = config["h2-address"].Split(";");
-        var ssladdrs = config["ssl-address"].Split(";");
-        var p12cert = config["p12-cert"];
-        var p12pass = config["p12-pass"];
-        var alpn = config["alpn"].Split(";").Select(a => new SslApplicationProtocol(a.Trim())).ToList();
+        // var addrs = config["h2c-address"].Split(";");
+        // var O9addrs = config["09-address"].Split(";");
+        // var h2addrs = config["h2-address"].Split(";");
+        // var ssladdrs = config["ssl-address"].Split(";");
+        // var p12cert = config["p12-cert"];
+        // var p12pass = config["p12-pass"];
+        var alpn = config.Alpn.Select(a => new SslApplicationProtocol(a.Trim())).ToList();
 
-        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.6.18\e[0m");
+        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.7.0\e[0m");
         Console.WriteLine($"cwd = {Directory.GetCurrentDirectory()}");
 
         List<Task> tasks = [];
 
-        foreach (var addr in addrs)
+        foreach (var addr in config.H2cAddress)
         {
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
@@ -48,7 +93,7 @@ public class Program
 
             Console.WriteLine($"\e[38;2;235;211;52mHTTP/1.1 (h2c) serving on http://{address}\e[0m");
         }
-        foreach (var addr in O9addrs)
+        foreach (var addr in config.O9Address)
         {
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
@@ -57,7 +102,7 @@ public class Program
 
             Console.WriteLine($"\e[38;2;235;52;52mHTTP/0.9 serving on http://{address}\e[0m");
         }
-        foreach (var addr in h2addrs)
+        foreach (var addr in config.H2Address)
         {
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
@@ -66,11 +111,15 @@ public class Program
 
             Console.WriteLine($"\e[38;2;235;143;52mHTTP/2 serving on http://{address}\e[0m"); // direct http2 rarely supported, hence the orange color
         }
-        foreach (var addr in ssladdrs)
+        foreach (var addr in config.SslAddress)
         {
+            X509Certificate2 cert;
+            if (config.P12Cert == null || config.P12pass == null) cert = AppConfig.SelfSigned();
+            else cert = X509CertificateLoader.LoadPkcs12FromFile(config.P12Cert, config.P12pass);
+
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            TlsServer tls = new(address, X509CertificateLoader.LoadPkcs12FromFile(p12cert, p12pass));
+            TlsServer tls = new(address, cert);
             tasks.Add(tls.Serve(Wrapper));
 
             tls.alpn = alpn;
@@ -85,7 +134,7 @@ public class Program
 
         Console.CancelKeyPress += (sender, e) =>
         {
-            Console.WriteLine("SIGINT received");
+            Console.WriteLine("\e[91mSIGINT received");
             sw.Stop();
             long nanos = sw.ElapsedTicks * (1_000_000_000 / Stopwatch.Frequency);
             long micros = sw.Elapsed.Microseconds;
@@ -116,14 +165,11 @@ public class Program
             Console.WriteLine(timestamp);
             
 
-
-            
-
             Environment.Exit(0);
         };
 
 
-        hands = new(config, config["serve-dir"]);
+        // hands = new(config, config["serve-dir"]);
         tasks.Add(Debug.Init(config));
 
         // HttpClient testClient = new()
