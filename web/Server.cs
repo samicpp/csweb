@@ -71,6 +71,7 @@ public class H2CServer(IPEndPoint address)
 
                         await h2c.InitAsync();
                         await h2c.SendSettingsAsync(Http2Settings.Default());
+                        await h2c.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
 
                         var upstream = new Http2Stream(1, h2c);
                         await upstream.ReadClientAsync();
@@ -78,7 +79,6 @@ public class H2CServer(IPEndPoint address)
 
                         while (h2c.goaway == null)
                         {
-                            await h2c.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
                             Http2Frame frame = await h2c.ReadOneAsync();
                             var sid = await h2c.HandleAsync(frame);
 
@@ -143,12 +143,12 @@ public class H2Server(IPEndPoint address)
                 {
                     await h2.InitAsync(); // Console.WriteLine("h2 init");
                     await h2.SendSettingsAsync(Http2Settings.Default()); // Console.WriteLine("h2 settings");
+                    await h2.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
 
                     while (h2.goaway == null)
                     {
                         try
                         {
-                            await h2.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
                             Http2Frame frame = await h2.ReadOneAsync();
                             var sid = await h2.HandleAsync(frame);
 
@@ -294,6 +294,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                 {
                     await h2.InitAsync();
                     await h2.SendSettingsAsync(Http2Settings.Default());
+                    await h2.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
 
                     while (h2.goaway == null)
                     {
@@ -301,7 +302,6 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                         {
                             
                             Http2Frame frame = await h2.ReadOneAsync();
-                            await h2.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
                             // catch (IOException)
                             // {
                             // }
