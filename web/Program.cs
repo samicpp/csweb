@@ -30,8 +30,10 @@ public class AppConfig
     [ConfigurationKeyName("p12-cert")] public string P12Cert { get; init; } = null;
     [ConfigurationKeyName("p12-pass")] public string P12pass { get; init; } = null;
     [ConfigurationKeyName("alpn")] public string[] Alpn { get; init; } = [ "h2", "http/1.1" ];
+    [ConfigurationKeyName("fallback-alpn")] public string FallbackAlpn { get; init; } = null;
 
     [ConfigurationKeyName("serve-dir")] public string ServeDir { get; init; } = "./";
+    [ConfigurationKeyName("backlog")] public int Backlog { get; init; } = 10;
 
 
     public static AppConfig Default() => new() { H2cAddress = [ "0.0.0.0:8080" ], SslAddress = [ "0.0.0.0:4433" ], ServeDir = "./public" };
@@ -79,7 +81,7 @@ public class Program
         // var p12pass = config["p12-pass"];
         var alpn = config.Alpn.Select(a => new SslApplicationProtocol(a.Trim())).ToList();
 
-        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.7.0\e[0m");
+        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.7.1\e[0m");
         Console.WriteLine($"cwd = {Directory.GetCurrentDirectory()}");
 
         List<Task> tasks = [];
@@ -88,7 +90,7 @@ public class Program
         {
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            H2CServer tcp = new(address);
+            H2CServer tcp = new(address) { backlog = config.Backlog };
             tasks.Add(tcp.Serve(Wrapper));
 
             Console.WriteLine($"\e[38;2;235;211;52mHTTP/1.1 (h2c) serving on http://{address}\e[0m");
@@ -97,7 +99,7 @@ public class Program
         {
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            O9Server tcp = new(address);
+            O9Server tcp = new(address) { backlog = config.Backlog };
             tasks.Add(tcp.Serve(Wrapper));
 
             Console.WriteLine($"\e[38;2;235;52;52mHTTP/0.9 serving on http://{address}\e[0m");
@@ -106,7 +108,7 @@ public class Program
         {
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            H2Server tcp = new(address);
+            H2Server tcp = new(address) { backlog = config.Backlog };
             tasks.Add(tcp.Serve(Wrapper));
 
             Console.WriteLine($"\e[38;2;235;143;52mHTTP/2 serving on http://{address}\e[0m"); // direct http2 rarely supported, hence the orange color
@@ -119,10 +121,11 @@ public class Program
 
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            TlsServer tls = new(address, cert);
+            TlsServer tls = new(address, cert) { backlog = config.Backlog };
             tasks.Add(tls.Serve(Wrapper));
 
             tls.alpn = alpn;
+            tls.fallback = config.FallbackAlpn;
 
             Console.WriteLine($"\e[38;2;76;235;52mHTTPS serving on https://{address}\e[0m");
         }

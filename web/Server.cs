@@ -229,6 +229,8 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
         new SslApplicationProtocol("http/0.9"),
     ];
 
+    public string fallback = null;
+
     public async Task Serve(Handler handler)
     {
         using Socket listener = new(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
@@ -274,7 +276,12 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
             }
             using TlsSocket tls = new(sslStream);
 
-            Console.WriteLine($"alpn = {alpn}");
+            Console.WriteLine($"alpn = \"{alpn}\"");
+            if (alpn == "")
+            {
+                Console.WriteLine("alpn not negotiated" + fallback != null ? $", falling back to {fallback}" : "");
+                if (fallback != null) alpn = fallback;
+            } 
 
             if (alpn == "http/0.9")
             {
@@ -346,11 +353,11 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
             }
             else
             {
-                Console.WriteLine("couldnt handle alpn, defaulting to HTTP/1.1");
+                Console.WriteLine($"couldnt handle alpn {alpn}");
 
-                using Http1Socket sock = new(tls, end);
-                sock.SetHeader("Connection", "close");
-                await handler(sock);
+                // using Http1Socket sock = new(tls, end);
+                // sock.SetHeader("Connection", "close");
+                // await handler(sock);
             }
         }
         catch (SocketException e) when (e.SocketErrorCode == SocketError.ConnectionReset || e.SocketErrorCode == SocketError.Shutdown || e.SocketErrorCode == SocketError.ConnectionAborted)
