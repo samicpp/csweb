@@ -94,7 +94,7 @@ public class Handlers(AppConfig appconfig)
 
         string fullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath(socket.Client.Path)}";
 
-        bool fresh = false;
+        // bool fresh = false;
         string extra = "";
         string router = null;
         FileInfo cinfo = new($"{BaseDir}/routes.json");
@@ -107,7 +107,8 @@ public class Handlers(AppConfig appconfig)
             try
             {
                 config = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(text);
-                fresh = true;
+                ccache.Clear();
+                // fresh = true;
             }
             catch (Exception)
             {
@@ -132,7 +133,7 @@ public class Handlers(AppConfig appconfig)
 
         string fullPath;
         string routerPath;
-        if (!fresh && ccache.TryGetValue(fullhost, out var path))
+        if (ccache.TryGetValue(fullhost, out var path))
         {
             fullPath = path.Item1;
             routerPath = path.Item2;

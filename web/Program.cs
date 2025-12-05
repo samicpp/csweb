@@ -95,7 +95,7 @@ public class Program
         var alpn = config.Alpn.Select(a => new SslApplicationProtocol(a.Trim())).ToList();
         if (config.WorkDir != null) Directory.SetCurrentDirectory(config.WorkDir);
 
-        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.7.2\e[0m");
+        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.7.3\e[0m");
         Console.WriteLine($"cwd = {Directory.GetCurrentDirectory()}");
 
         List<Task> tasks = [];
