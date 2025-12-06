@@ -20,6 +20,9 @@ using Samicpp.Http.Debug;
 using Microsoft.DotNet.Interactive.Formatting;
 using System.Security.Cryptography;
 using Samicpp.Http.Http2;
+using System.Text.Json.Serialization;
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 
 public class AppConfig
 {
@@ -69,15 +72,26 @@ public class AppConfig
     }
 }
 
+#if AOT_BUILD
+[JsonSerializable(typeof(AppConfig))]
+public partial class AppConfigContext : JsonSerializerContext { }
+#endif
+
 public class Program
 {
-    public static string Version { get; } = "v2.7.6";
+    public static string Version { get; } = "v2.7.7";
 
     static AppConfig TryConfig()
     {
         try
         {
+            #if AOT_BUILD
+            FileInfo cinfo = new($"./appsettings.json");
+            if (cinfo.Exists) return JsonSerializer.Deserialize(File.ReadAllBytes("./appsettings.json"), AppConfigContext.Default.AppConfig);
+            else return AppConfig.Default();
+            #else
             return new ConfigurationBuilder().AddJsonFile("appsettings.json", true, true).Build().Get<AppConfig>() ?? AppConfig.Default();
+            #endif
         }
         catch (Exception)
         {
@@ -101,10 +115,11 @@ public class Program
         if (config.WorkDir != null) Directory.SetCurrentDirectory(config.WorkDir);
 
 
-        Debug.logLevel=config.Loglevel;
+        Debug.logLevel = config.Loglevel == 0 ? null : config.Loglevel;
 
         Debug.WriteColorLine((int)LogLevel.Init, $"csweb {Version}", (52, 235, 210));
         Debug.WriteColorLine((int)LogLevel.Verbose, $"cwd = {Directory.GetCurrentDirectory()}", 8);
+        Debug.WriteColorLine((int)LogLevel.Verbose, $"serve-dir = {config.ServeDir}", 8);
         Debug.WriteLine((int)LogLevel.Init, "");
 
         List<Task> tasks = [];

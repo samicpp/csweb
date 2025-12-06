@@ -18,6 +18,21 @@ using Microsoft.DotNet.Interactive;
 using Microsoft.DotNet.Interactive.CSharp;
 using Microsoft.DotNet.Interactive.Events;
 using Microsoft.DotNet.Interactive.Commands;
+using System.Text.Json.Serialization;
+using System.Runtime.CompilerServices;
+
+public readonly struct RouteConfig()
+{
+    [JsonPropertyName("match-type")] public string MatchType { get; init; } = "host";
+    [JsonPropertyName("dir")] public string Directory { get; init; } = ".";
+    [JsonPropertyName("router")] public string Router { get; init; } = null;
+}
+
+[JsonSerializable(typeof(Dictionary<string, RouteConfig>))]
+public partial class RoutesContext : JsonSerializerContext { }
+
+[JsonSerializable(typeof(Dictionary<string, string>))]
+public partial class HeadersContext : JsonSerializerContext { }
 
 public class Handlers(AppConfig appconfig)
 {
@@ -31,9 +46,9 @@ public class Handlers(AppConfig appconfig)
     readonly Dictionary<string, (string, string)> ccache = [];
 
     DateTime configTime;
-    Dictionary<string, Dictionary<string, string>> config = new()
+    Dictionary<string, RouteConfig> config = new()
     {
-        { "default", new() { { "dir", "." } } }
+        { "default", new() { Directory = "." } }
     };
     DateTime eheadersTime;
     Dictionary<string, string> eheaders = [];
@@ -43,6 +58,14 @@ public class Handlers(AppConfig appconfig)
     {
         var cpath = remove1.Replace(path, "");
         cpath = remove2.Replace(cpath, "");
+        cpath = collapse.Replace(cpath, "/");
+        cpath = remove3.Replace(cpath, "");
+        return cpath;
+    }
+    string CleanPath(string baseDir, string path)
+    {
+        var cpath = "/" + remove1.Replace(path, "");
+        cpath = remove2.Replace(baseDir + cpath, "");
         cpath = collapse.Replace(cpath, "/");
         cpath = remove3.Replace(cpath, "");
         return cpath;
@@ -108,7 +131,8 @@ public class Handlers(AppConfig appconfig)
             // Console.WriteLine(text);
             try
             {
-                config = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(text);
+                RoutesContext context = new();
+                config = JsonSerializer.Deserialize(text, RoutesContext.Default.DictionaryStringRouteConfig);
                 ccache.Clear();
                 // fresh = true;
             }
@@ -125,7 +149,7 @@ public class Handlers(AppConfig appconfig)
             var text = await File.ReadAllBytesAsync($"{BaseDir}/headers.json");
             try
             {
-                eheaders = JsonSerializer.Deserialize<Dictionary<string, string>>(text);
+                eheaders = JsonSerializer.Deserialize(text, HeadersContext.Default.DictionaryStringString);
             }
             catch (Exception)
             {
@@ -146,7 +170,7 @@ public class Handlers(AppConfig appconfig)
             foreach (var (k, v) in config)
             {
                 if (k == "default") continue;
-                var type = v.GetValueOrDefault("match-type") ?? "host";
+                var type = v.MatchType;
                 if (
                     (type == "host" && socket.Client.Host == k) ||
                     (type == "start" && fullhost.StartsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
@@ -157,26 +181,27 @@ public class Handlers(AppConfig appconfig)
                     (type == "protocol" && k.Equals(socket.Client.Version, StringComparison.CurrentCultureIgnoreCase)) 
                 )
                 {
-                    extra = v.GetValueOrDefault("dir") ?? extra;
-                    router = v.GetValueOrDefault("router") ?? router;
+                    extra = v.Directory;
+                    router = v.Router;
                     cmatch = true;
                     break;
                 }
             }
             if (!cmatch && config.TryGetValue("default", out var def))
             {
-                extra = def.GetValueOrDefault("dir") ?? extra;
-                router = def.GetValueOrDefault("router") ?? router;
+                extra = def.Directory;
+                router = def.Router;
             }
 
-            string rawFullPath = $"{BaseDir}/{extra}/{socket.Client.Path.Trim()}";
+            // string rawFullPath = $"{BaseDir}/{extra}/{socket.Client.Path.Trim()}";
             routerPath = router == null ? null : Path.GetFullPath($"{BaseDir}/{extra}/{router}");
-            fullPath = Path.GetFullPath(CleanPath(rawFullPath));
+            fullPath = Path.GetFullPath(CleanPath($"{BaseDir}/{extra}/", socket.Client.Path.Trim()));
             ccache[fullhost] = (fullPath, routerPath);
+            Debug.WriteLine((int)LogLevel.Debug, $"routes path '{extra}' -> '{routerPath}' '{fullPath}'");
         }
 
         Debug.WriteColorLine((int)LogLevel.Info, $"↓ {socket.Client.Method} '{fullhost}'", 8);
-        // Debug.WriteColorLine((int)LogLevel.Log, $"full path = {fullPath}", 5);
+        Debug.WriteColorLine((int)LogLevel.Log, $"full path = {fullPath}", 5);
         if (routerPath != null) Debug.WriteColorLine((int)LogLevel.Log, $"router path = {routerPath}", 5);
 
         foreach (var (k,v) in eheaders)
@@ -388,6 +413,7 @@ public class Handlers(AppConfig appconfig)
             await socket.CloseAsync();
             Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ 204 blank", 2);
         }
+        #if !AOT_BUILD
         else if (name.EndsWith(".dll"))
         {
             try
@@ -404,7 +430,7 @@ public class Handlers(AppConfig appconfig)
                     string tname = Path.GetFileNameWithoutExtension(name);
                     byte[] lib = await File.ReadAllBytesAsync(path);
                     Assembly assembly = Assembly.Load(lib);
-                    Type type = assembly.GetType(tname);
+                    Type type = Type.GetType(tname);
 
                     IHttpPlugin plugin = (IHttpPlugin)Activator.CreateInstance(type);
                     await plugin.Init(path);
@@ -416,9 +442,15 @@ public class Handlers(AppConfig appconfig)
             }
             catch (Exception e)
             {
-                await ErrorHandler(socket, path, 500, "", "plugin error", e.StackTrace);
+                await ErrorHandler(socket, path, 500, "", "plugin error", e.ToString());
             }
         }
+        #else
+        else if (name.EndsWith(".dll"))
+        {
+            await ErrorHandler(socket, path, 501);
+        }
+        #endif
         else if (false && name.EndsWith(".cs"))
         {
             // await cskernel.SetValueAsync("socket", socket, typeof(IDualHttpSocket));
