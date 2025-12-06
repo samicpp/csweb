@@ -52,10 +52,12 @@ public class Handlers(AppConfig appconfig)
     {
         if (!socket.Client.IsValid)
         {
-            Console.WriteLine("client is not valid");
+            Debug.WriteLine((int)LogLevel.Verbose, "client is not valid");
             await ErrorHandler(socket, "", 400);
             return;
         }
+
+        Debug.WriteLine((int)LogLevel.Debug, "connection established using " + socket.Client.Version);
 
         if (socket.Client.Headers.TryGetValue("accept-encoding", out List<string> encoding))
         {
@@ -85,14 +87,14 @@ public class Handlers(AppConfig appconfig)
                 };
                 if (socket.Compression != Compression.None) break;
             }
-            Console.WriteLine("using compression " + socket.Compression);
+            Debug.WriteLine((int)LogLevel.Debug, "using compression " + socket.Compression);
         }
         else
         {
-            Console.WriteLine("no compression");
+            Debug.WriteLine((int)LogLevel.Debug, "no compression");
         }
 
-        string fullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath(socket.Client.Path)}";
+        string fullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath("/" + socket.Client.Path)}";
 
         // bool fresh = false;
         string extra = "";
@@ -112,7 +114,7 @@ public class Handlers(AppConfig appconfig)
             }
             catch (Exception)
             {
-                Console.WriteLine("invalid routes config file");
+                Debug.WriteLine((int)LogLevel.Warning, "invalid routes config file");
             }
         }
 
@@ -127,7 +129,7 @@ public class Handlers(AppConfig appconfig)
             }
             catch (Exception)
             {
-                Console.WriteLine("invalid extra headers file");
+                Debug.WriteLine((int)LogLevel.Warning, "invalid extra headers file");
             }
         }
 
@@ -173,8 +175,9 @@ public class Handlers(AppConfig appconfig)
             ccache[fullhost] = (fullPath, routerPath);
         }
 
-        Console.WriteLine($"\x1b[35mfull path = {fullPath}\e[0m");
-        if (routerPath != null) Console.WriteLine($"\x1b[35mrouter path = {routerPath}\e[0m");
+        Debug.WriteColorLine((int)LogLevel.Info, $"client requested '{fullhost}' -> {fullPath}", 8);
+        // Debug.WriteColorLine((int)LogLevel.Log, $"full path = {fullPath}", 5);
+        if (routerPath != null) Debug.WriteColorLine((int)LogLevel.Log, $"router path = {routerPath}", 5);
 
         foreach (var (k,v) in eheaders)
         {
@@ -195,7 +198,7 @@ public class Handlers(AppConfig appconfig)
                 var (t, c, b, e) = tcbe;
                 if (t == info.LastWriteTime)
                 {
-                    Console.WriteLine("caching response");
+                    Debug.WriteLine((int)LogLevel.Verbose, "caching response");
                     socket.SetHeader("Content-Type", c);
                     if (e != null)
                     {
@@ -230,7 +233,7 @@ public class Handlers(AppConfig appconfig)
                 var (t, c, b, e) = tcbe;
                 if (t == info.LastWriteTime)
                 {
-                    Console.WriteLine("caching response");
+                    Debug.WriteLine((int)LogLevel.Verbose, "caching response");
                     socket.SetHeader("Content-Type", c);
                     if (e != null)
                     {
@@ -291,7 +294,7 @@ public class Handlers(AppConfig appconfig)
     public async Task ErrorHandler(IDualHttpSocket socket, string path, int code, string status = "", string message = "", string debug = "")
     {
         socket.SetHeader("Content-Type", "text/plain");
-        Console.WriteLine($"\x1b[31m{code} error\x1b[0m");
+        Debug.WriteColorLine((int)LogLevel.Error, $"{code} error", 1);
 
         switch (code)
         {
@@ -347,12 +350,12 @@ public class Handlers(AppConfig appconfig)
 
         if (found != null)
         {
-            Console.WriteLine($"found file {path}/{found}");
+            Debug.WriteLine((int)LogLevel.Log, $"found file {path}/{found}");
             await FileHandler(socket, $"{path}/{found}", normalPath);
         }
         else
         {
-            Console.WriteLine("found no files");
+            Debug.WriteLine((int)LogLevel.Log, "found no files");
             await ErrorHandler(socket, path, 409);
         }
     }
@@ -387,7 +390,7 @@ public class Handlers(AppConfig appconfig)
                 }
                 else
                 {
-                    Console.WriteLine("loading new plugin " + name);
+                    Debug.WriteLine((int)LogLevel.Info, "loading new plugin " + path); // dangerous, hence elevated log level
                     string tname = Path.GetFileNameWithoutExtension(name);
                     byte[] lib = await File.ReadAllBytesAsync(path);
                     Assembly assembly = Assembly.Load(lib);
@@ -409,7 +412,7 @@ public class Handlers(AppConfig appconfig)
         }
         else if (name.EndsWith(".redirect") || name.EndsWith(".link") || name.Contains(".var."))
         {
-            Console.WriteLine("special file");
+            Debug.WriteLine((int)LogLevel.Verbose, "special file");
             string utext = await File.ReadAllTextAsync(path);
             EndPoint ip = socket.EndPoint ?? IPEndPoint.Parse("[::]:0");
             string addr = ip.ToString();
@@ -437,13 +440,13 @@ public class Handlers(AppConfig appconfig)
 
             if (name.Contains(".var."))
             {
-                Console.WriteLine("var file");
+                Debug.WriteLine((int)LogLevel.Debug, "var file");
                 socket.SetHeader("Content-Type", dmt);
                 await socket.CloseAsync(utext);
             }
             else if (name.EndsWith(".redirect"))
             {
-                Console.WriteLine("redirect file");
+                Debug.WriteLine((int)LogLevel.Debug, "redirect file");
                 socket.Status = 302;
                 socket.StatusMessage = "Found";
                 socket.SetHeader("Location", utext.Replace("\n", "").Trim());
@@ -451,7 +454,7 @@ public class Handlers(AppConfig appconfig)
             }
             else if (name.EndsWith(".link"))
             {
-                Console.WriteLine("link, passing request to handler");
+                Debug.WriteLine((int)LogLevel.Debug, "link, passing request to handler");
 
                 FileSystemInfo ninfo = new FileInfo(utext);
                 if (!info.Exists) ninfo = new DirectoryInfo(utext);

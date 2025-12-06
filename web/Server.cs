@@ -45,7 +45,7 @@ public class H2CServer(IPEndPoint address)
         while (true)
         {
             var shandler = await listener.AcceptAsync();
-            Console.WriteLine($"\e[32m{shandler.RemoteEndPoint}\e[0m");
+            Debug.WriteColorLine((int)LogLevel.Trace, $"{shandler.RemoteEndPoint}", 8);
 
             var _ = Task.Run(async () =>
             {
@@ -59,8 +59,7 @@ public class H2CServer(IPEndPoint address)
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("failed to read client");
-                    Console.WriteLine(e);
+                    Debug.WriteLines((int)LogLevel.Warning, "failed to read client", e);
                 }
 
                 try
@@ -91,7 +90,7 @@ public class H2CServer(IPEndPoint address)
                             }
                             else foreach (byte b in frame.raw) dump += $"0x{b:X}, ";
                             dump += "]";
-                            Console.WriteLine(dump);
+                            Debug.WriteLine((int)LogLevel.Trace, dump);
 
                             if (sid != null)
                             {
@@ -108,9 +107,7 @@ public class H2CServer(IPEndPoint address)
                 }
                 catch(Exception e)
                 {
-                    Console.WriteLine("\x1b[91mserver error occured");
-                    Console.WriteLine(e);
-                    Console.WriteLine("\e[0m");
+                    Debug.WriteColorLine((int)LogLevel.Critical, $"server error occured\n{e}\n", 9);
                 }
             });
         }
@@ -133,7 +130,7 @@ public class H2Server(IPEndPoint address)
         while (true)
         {
             var shandler = await listener.AcceptAsync();
-            Console.WriteLine($"\e[32m{shandler.RemoteEndPoint}\e[0m");
+            Debug.WriteColorLine((int)LogLevel.Trace, $"{shandler.RemoteEndPoint}", 8);
 
             var _ = Task.Run(async () =>
             {
@@ -161,7 +158,7 @@ public class H2Server(IPEndPoint address)
                             }
                             else foreach (byte b in frame.raw) dump += $"0x{b:X}, ";
                             dump += "]";
-                            Console.WriteLine(dump);
+                            Debug.WriteLine((int)LogLevel.Trace, dump);
 
                             if (sid != null)
                             {
@@ -177,9 +174,7 @@ public class H2Server(IPEndPoint address)
                 }
                 catch(Exception e)
                 {
-                    Console.WriteLine("\x1b[91mserver error occured");
-                    Console.WriteLine(e);
-                    Console.WriteLine("\e[0m");
+                    Debug.WriteColorLine((int)LogLevel.Critical, $"server error occured\n{e}\n", 9);
                 }
 
             });
@@ -203,7 +198,7 @@ public class O9Server(IPEndPoint address)
         while (true)
         {
             var shandler = await listener.AcceptAsync();
-            Console.WriteLine($"\e[32m{shandler.RemoteEndPoint}\e[0m");
+            Debug.WriteColorLine((int)LogLevel.Trace, $"{shandler.RemoteEndPoint}", 8);
 
             var _ = Task.Run(async () =>
             {
@@ -251,7 +246,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
         while (true)
         {
             var shandler = await listener.AcceptAsync();
-            Console.WriteLine($"\e[32m{shandler.RemoteEndPoint}\e[0m");
+            Debug.WriteColorLine((int)LogLevel.Trace, $"{shandler.RemoteEndPoint}", 8);
             NetworkStream stream = new(shandler, true);
 
             var _ = Task.Run(async () => await TlsUpgrade(handler, stream, opt, shandler.RemoteEndPoint));
@@ -270,16 +265,14 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
             }
             catch (Exception e)
             {
-                Console.WriteLine("\x1b[91mtls authentication error occured");
-                Console.WriteLine(e);
-                Console.WriteLine("\e[0m");
+                Debug.WriteColorLine((int)LogLevel.Critical, $"tls authentication error occured\n{e}\n", 9);
             }
             using TlsSocket tls = new(sslStream);
 
-            Console.WriteLine($"alpn = \"{alpn}\"");
+            Debug.WriteLine((int)LogLevel.Debug, $"alpn = \"{alpn}\"");
             if (alpn == "")
             {
-                Console.WriteLine("alpn not negotiated" + fallback != null ? $", falling back to {fallback}" : "");
+                Debug.WriteColorLine((int)LogLevel.Warning, "alpn not negotiated" + fallback != null ? $", falling back to {fallback}" : "", 3);
                 if (fallback != null) alpn = fallback;
             } 
 
@@ -324,7 +317,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                             }
                             else foreach (byte b in frame.raw) dump += $"0x{b:X}, ";
                             dump += "]";
-                            Console.WriteLine(dump);
+                            Debug.WriteLine((int)LogLevel.Trace, dump);
 
                             if (sid != null)
                             {
@@ -339,21 +332,19 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                         }
                         catch (IOException ioe) when (ioe.InnerException is SocketException e && (e.SocketErrorCode == SocketError.ConnectionReset || e.SocketErrorCode == SocketError.Shutdown || e.SocketErrorCode == SocketError.ConnectionAborted || e.ErrorCode == 32 /* Broken Pipe */))
                         {
-                            Console.WriteLine("\e[31mconnection ended abruptly\e[0m");
+                            Debug.WriteColorLine((int)LogLevel.Critical, "connection ended abruptly", 1);
                             break;
                         }
                     }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("\x1b[91mserver error occured");
-                    Console.WriteLine(e);
-                    Console.WriteLine("\e[0m");
+                    Debug.WriteColorLine((int)LogLevel.Critical, $"server error occured\n{e}\n", 9);
                 }
             }
             else
             {
-                Console.WriteLine($"couldnt handle alpn {alpn}");
+                Debug.WriteLine((int)LogLevel.Warning, $"couldnt handle alpn {alpn}");
 
                 // using Http1Socket sock = new(tls, end);
                 // sock.SetHeader("Connection", "close");
@@ -362,13 +353,11 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
         }
         catch (SocketException e) when (e.SocketErrorCode == SocketError.ConnectionReset || e.SocketErrorCode == SocketError.Shutdown || e.SocketErrorCode == SocketError.ConnectionAborted)
         {
-            Console.WriteLine("\x1b[91msocket unexpectedly closed\e[0m");
+            Debug.WriteColorLine((int)LogLevel.Critical, "socket unexpectedly closed", 9);
         }
         catch (Exception e)
         {
-            Console.WriteLine("\x1b[91mtls error occured");
-            Console.WriteLine(e);
-            Console.WriteLine("\e[0m");
+            Debug.WriteColorLine((int)LogLevel.Critical, $"tls error occured\n{e}\n", 9);
         }
     }
 }

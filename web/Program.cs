@@ -19,6 +19,7 @@ using System.Net.Security;
 using Samicpp.Http.Debug;
 using Microsoft.DotNet.Interactive.Formatting;
 using System.Security.Cryptography;
+using Samicpp.Http.Http2;
 
 public class AppConfig
 {
@@ -35,6 +36,8 @@ public class AppConfig
     [ConfigurationKeyName("cwd")] public string WorkDir { get; init; } = null;
     [ConfigurationKeyName("serve-dir")] public string ServeDir { get; init; } = "./";
     [ConfigurationKeyName("backlog")] public int Backlog { get; init; } = 10;
+
+    [ConfigurationKeyName("loglevel")] public int? Loglevel { get; init; } = (int)(LogLevel.Info | LogLevel.Init | LogLevel.Warning | LogLevel.SoftError | LogLevel.Error | LogLevel.Fatal | LogLevel.Assert);
 
 
     public static AppConfig Default() => new() { H2cAddress = [ "0.0.0.0:8080" ], SslAddress = [ "0.0.0.0:4433" ], ServeDir = "./public" };
@@ -68,6 +71,8 @@ public class AppConfig
 
 public class Program
 {
+    public static string Version { get; } = "v2.7.4";
+
     static AppConfig TryConfig()
     {
         try
@@ -76,7 +81,7 @@ public class Program
         }
         catch (Exception)
         {
-            Console.WriteLine($"\e[4;93;40m{Directory.GetCurrentDirectory()}/appsettings.json is invalid\e[0m");
+            Debug.WriteLine((int)LogLevel.Warning, $"\e[4;93;40m{Directory.GetCurrentDirectory()}/appsettings.json is invalid\e[0m");
             return AppConfig.Default();
         }
     }
@@ -95,8 +100,11 @@ public class Program
         var alpn = config.Alpn.Select(a => new SslApplicationProtocol(a.Trim())).ToList();
         if (config.WorkDir != null) Directory.SetCurrentDirectory(config.WorkDir);
 
-        Console.WriteLine("\e[38;2;52;235;210mcsweb v2.7.3\e[0m");
-        Console.WriteLine($"cwd = {Directory.GetCurrentDirectory()}");
+
+        Debug.logLevel=config.Loglevel;
+
+        Debug.WriteColorLine((int)LogLevel.Init, "csweb " + Version, (52, 235, 210));
+        Debug.WriteLine((int)LogLevel.Verbose, $"cwd = {Directory.GetCurrentDirectory()}");
 
         List<Task> tasks = [];
 
@@ -107,7 +115,7 @@ public class Program
             H2CServer tcp = new(address) { backlog = config.Backlog };
             tasks.Add(tcp.Serve(Wrapper));
 
-            Console.WriteLine($"\e[38;2;235;211;52mHTTP/1.1 (h2c) serving on http://{address}\e[0m");
+            Debug.WriteColorLine((int)LogLevel.Init, $"HTTP/1.1 (h2c) serving on http://{address}", (235, 211, 52));
         }
         foreach (var addr in config.O9Address)
         {
@@ -116,7 +124,7 @@ public class Program
             O9Server tcp = new(address) { backlog = config.Backlog };
             tasks.Add(tcp.Serve(Wrapper));
 
-            Console.WriteLine($"\e[38;2;235;52;52mHTTP/0.9 serving on http://{address}\e[0m");
+            Debug.WriteColorLine((int)LogLevel.Init, $"HTTP/0.9 serving on http://{address}", (235, 52, 52));
         }
         foreach (var addr in config.H2Address)
         {
@@ -125,7 +133,7 @@ public class Program
             H2Server tcp = new(address) { backlog = config.Backlog };
             tasks.Add(tcp.Serve(Wrapper));
 
-            Console.WriteLine($"\e[38;2;235;143;52mHTTP/2 serving on http://{address}\e[0m"); // direct http2 rarely supported, hence the orange color
+            Debug.WriteColorLine((int)LogLevel.Init, $"HTTP/2 serving on http://{address}", (235, 143, 52)); // direct http2 rarely supported, hence the orange color
         }
         foreach (var addr in config.SslAddress)
         {
@@ -141,7 +149,7 @@ public class Program
             tls.alpn = alpn;
             tls.fallback = config.FallbackAlpn;
 
-            Console.WriteLine($"\e[38;2;76;235;52mHTTPS serving on https://{address}\e[0m");
+            Debug.WriteColorLine((int)LogLevel.Init, $"HTTPS serving on https://{address}", (76, 235, 52));
         }
 
 
@@ -151,7 +159,7 @@ public class Program
 
         Console.CancelKeyPress += (sender, e) =>
         {
-            Console.WriteLine("\e[91mSIGINT received");
+            Debug.WriteColorLine((int)LogLevel.Info, "SIGINT received", 9);
             sw.Stop();
             long nanos = sw.ElapsedTicks * (1_000_000_000 / Stopwatch.Frequency);
             long micros = sw.Elapsed.Microseconds;
@@ -179,7 +187,7 @@ public class Program
                 timestamp += $"{milis % 1000}ms ";
             }
             timestamp += $"\x1b[38;2;117;117;117m{micros % 1000}us {nanos % 1000}ns\e[0m";
-            Console.WriteLine(timestamp);
+            Debug.WriteLine((int)LogLevel.Info, timestamp);
             
 
             Environment.Exit(0);
@@ -200,10 +208,10 @@ public class Program
         // ScriptNode node = new();
         // await node.Execute("System.Console.WriteLine(\"hello world\");", test, ScriptType.CSharp);
 
-        Console.WriteLine("waiting untill server end");
+        Debug.WriteLine((int)LogLevel.Debug, "waiting untill server end");
         foreach (var task in tasks) await task;
 
-        Console.WriteLine("server done");
+        Debug.WriteLine((int)LogLevel.Verbose, "server done");
     }
 
     static ulong counter = 0;
@@ -218,8 +226,6 @@ public class Program
             var client = conn.Client;
             while (!client.HeadersComplete) client = await conn.ReadClientAsync();
 
-            Console.WriteLine("connection established using " + client.Version);
-
             string dump = "\x1b[38;2;52;128;235m";
             // Console.ForegroundColor = ConsoleColor.Cyan;
             dump += "IHttpClient {\n";
@@ -231,10 +237,10 @@ public class Program
             dump += $"   HeadersComplete: {client.HeadersComplete}\n";
             dump += $"   BodyComplete: {client.BodyComplete}\n";
             dump += $"   Headers.Count: {client.Headers.Count}\n";
-            dump += $"   Scheme: {(conn.IsHttps ? "https" : "http")}\n";
+            if (client is Http2Client h2client) dump += $"   Scheme: {h2client.Scheme}\n";
             dump += $"   Secure: {conn.IsHttps}\n";
             dump += "}\e[0m";
-            Console.WriteLine(dump);
+            Debug.WriteLine((int)LogLevel.Dump, dump);
 
             string hdump = "\x1b[38;2;52;177;235m";
             // Console.ForegroundColor = ConsoleColor.DarkCyan;
@@ -252,22 +258,20 @@ public class Program
                 hdump += "}\n";
             }
             hdump += "\e[0m";
-            Console.WriteLine(hdump);
+            Debug.WriteLine((int)LogLevel.Dump, hdump);
 
-            // throw new Exception("");
+            // throw new Exception("test");
 
             await hands.Entry(conn);
         }
         catch (Exception e)
         {
-            Console.WriteLine("\x1b[91mwrapper error occured");
-            Console.WriteLine(e);
-            Console.WriteLine("\e[0m");
+            Debug.WriteColorLine((int)LogLevel.Critical, $"wrapper error occured\n{e}\n", 9);
         }
         finally
         {
             sw.Stop();
-            Console.WriteLine($"\x1b[38;2;245;182;66mrequest finished after {sw.ElapsedTicks * (1_000_000.0 / Stopwatch.Frequency) / 1_000}ms\x1b[0m");
+            Debug.WriteColorLine((int)LogLevel.Log, $"request finished after {sw.ElapsedTicks * (1_000_000.0 / Stopwatch.Frequency) / 1_000}ms", (245, 182, 66));
             // await conn.DisposeAsync();
         }
     }
