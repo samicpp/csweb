@@ -42,7 +42,7 @@ public class Debug
             await Task.Delay(120_000);
             if (Program.Visits != last)
             {
-                WriteLine((int)LogLevel.Info, $"total of {Program.Visits} visits");
+                WriteLine((int)LogLevel.Info, $"total of {Program.Visits} visits \e[38;5;8m{DateTime.Now:H:mm:ss yy-M-d}\e[0m");
                 last = Program.Visits;
             }
         }

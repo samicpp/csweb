@@ -175,7 +175,7 @@ public class Handlers(AppConfig appconfig)
             ccache[fullhost] = (fullPath, routerPath);
         }
 
-        Debug.WriteColorLine((int)LogLevel.Info, $"client requested '{fullhost}' -> {fullPath}", 8);
+        Debug.WriteColorLine((int)LogLevel.Info, $"↓ {socket.Client.Method} '{fullhost}'", 8);
         // Debug.WriteColorLine((int)LogLevel.Log, $"full path = {fullPath}", 5);
         if (routerPath != null) Debug.WriteColorLine((int)LogLevel.Log, $"router path = {routerPath}", 5);
 
@@ -294,7 +294,7 @@ public class Handlers(AppConfig appconfig)
     public async Task ErrorHandler(IDualHttpSocket socket, string path, int code, string status = "", string message = "", string debug = "")
     {
         socket.SetHeader("Content-Type", "text/plain");
-        Debug.WriteColorLine((int)LogLevel.Error, $"{code} error", 1);
+        // Debug.WriteColorLine((int)LogLevel.Error, $"{code} error", 1);
 
         switch (code)
         {
@@ -302,36 +302,42 @@ public class Handlers(AppConfig appconfig)
                 socket.Status = 400;
                 socket.StatusMessage = "Bad Request";
                 await socket.CloseAsync($"fix your client idk\n");
+                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} invalid client", (255, 119, 0));
                 break;
 
             case 404:
                 socket.Status = 404;
                 socket.StatusMessage = "Not Found";
                 await socket.CloseAsync($"{socket.Client.Path} Not Found\n");
+                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} {path}", (255, 119, 0));
                 break;
 
             case 409:
                 socket.Status = 409;
                 socket.StatusMessage = "Conflict";
                 await socket.CloseAsync("Something went wrong\n");
+                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} no index", (255, 119, 0));
                 break;
 
             case 500:
                 socket.Status = 500;
                 socket.StatusMessage = "Internal Server Error";
                 await socket.CloseAsync($"{message}:\n{debug}");
+                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} {message}", (255, 119, 0));
                 break;
 
             case 501:
                 socket.Status = 501;
                 socket.StatusMessage = "Not Implemented";
                 await socket.CloseAsync($"Couldnt handle {socket.Client.Path}\n");
+                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} not implemented", (255, 119, 0));
                 break;
 
             default:
                 socket.Status = code;
                 socket.StatusMessage = status;
                 await socket.CloseAsync($"{message}:\n{debug}");
+                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} '{message}'", (255, 119, 0));
                 break;
         }
     }
@@ -369,7 +375,8 @@ public class Handlers(AppConfig appconfig)
         var str = info.OpenRead();
         var name = info.Name;
 
-        var ext = name.Split(".").Last();
+        var dot = name.Split(".");
+        var ext = dot.Last();
         var dmt = MimeTypes.types.GetValueOrDefault(ext) ?? "application/octet-stream";
         string fullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath(socket.Client.Path)}";
 
@@ -379,6 +386,7 @@ public class Handlers(AppConfig appconfig)
             socket.Status = 204;
             socket.StatusMessage = "No Content";
             await socket.CloseAsync();
+            Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ 204 blank", 2);
         }
         else if (name.EndsWith(".dll"))
         {
@@ -386,18 +394,23 @@ public class Handlers(AppConfig appconfig)
             {
                 if (plugins.TryGetValue(path, out var plug) && info.LastWriteTime == plug.Item1 && plug.Item2.Alive)
                 {
+                    Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ 0 handed over control", 5);
                     await plug.Item2.Handle(socket, normalPath ?? path);
                 }
                 else
                 {
-                    Debug.WriteLine((int)LogLevel.Info, "loading new plugin " + path); // dangerous, hence elevated log level
+                    Debug.WriteColorLine((int)LogLevel.Info, "\e[2mloading new plugin " + path, (255, 173, 173)); // dangerous, hence elevated log level
+                    
                     string tname = Path.GetFileNameWithoutExtension(name);
                     byte[] lib = await File.ReadAllBytesAsync(path);
                     Assembly assembly = Assembly.Load(lib);
                     Type type = assembly.GetType(tname);
+
                     IHttpPlugin plugin = (IHttpPlugin)Activator.CreateInstance(type);
                     await plugin.Init(path);
                     if (plugin.Alive) plugins[path] = (info.LastWriteTime, plugin);
+
+                    Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ 0 handed over control", 5);
                     await plugin.Handle(socket, normalPath ?? path);
                 }
             }
@@ -406,7 +419,7 @@ public class Handlers(AppConfig appconfig)
                 await ErrorHandler(socket, path, 500, "", "plugin error", e.StackTrace);
             }
         }
-        else if (name.EndsWith(".cs"))
+        else if (false && name.EndsWith(".cs"))
         {
             // await cskernel.SetValueAsync("socket", socket, typeof(IDualHttpSocket));
         }
@@ -443,14 +456,23 @@ public class Handlers(AppConfig appconfig)
                 Debug.WriteLine((int)LogLevel.Debug, "var file");
                 socket.SetHeader("Content-Type", dmt);
                 await socket.CloseAsync(utext);
+                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ 200 '{path}' ({utext.Length})", 2);
             }
             else if (name.EndsWith(".redirect"))
             {
                 Debug.WriteLine((int)LogLevel.Debug, "redirect file");
-                socket.Status = 302;
+
+                string location = utext.Replace("\n", "").Trim();
+                int code = 302;
+                if (dot.Length >= 2 && int.TryParse(dot[^2], out int scode)) code = scode;
+
+                // TODO: cache these
+                socket.Status = code;
                 socket.StatusMessage = "Found";
-                socket.SetHeader("Location", utext.Replace("\n", "").Trim());
+                socket.SetHeader("Location", location);
+
                 await socket.CloseAsync();
+                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} {location}", 6);
             }
             else if (name.EndsWith(".link"))
             {
@@ -477,6 +499,7 @@ public class Handlers(AppConfig appconfig)
             byte[] bytes = await File.ReadAllBytesAsync(path);
             await socket.CloseAsync(bytes);
             cache[fullhost] = (info.LastWriteTime, dmt, bytes, enc == "br" ? Compression.Brotli : Compression.Gzip);
+            Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ 200 '{path}' ({bytes.Length})", 2);
         }
         else
         {
@@ -484,6 +507,7 @@ public class Handlers(AppConfig appconfig)
             byte[] bytes = await File.ReadAllBytesAsync(path);
             await socket.CloseAsync(bytes);
             cache[fullhost] = (info.LastWriteTime, dmt, bytes, null);
+            Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ 200 '{path}' ({bytes.Length})", 2);
         }
     }
 }

@@ -71,7 +71,7 @@ public class AppConfig
 
 public class Program
 {
-    public static string Version { get; } = "v2.7.4";
+    public static string Version { get; } = "v2.7.5";
 
     static AppConfig TryConfig()
     {
@@ -103,38 +103,12 @@ public class Program
 
         Debug.logLevel=config.Loglevel;
 
-        Debug.WriteColorLine((int)LogLevel.Init, "csweb " + Version, (52, 235, 210));
-        Debug.WriteLine((int)LogLevel.Verbose, $"cwd = {Directory.GetCurrentDirectory()}");
+        Debug.WriteColorLine((int)LogLevel.Init, $"csweb {Version}", (52, 235, 210));
+        Debug.WriteColorLine((int)LogLevel.Verbose, $"cwd = {Directory.GetCurrentDirectory()}", 8);
+        Debug.WriteLine((int)LogLevel.Init, "");
 
         List<Task> tasks = [];
 
-        foreach (var addr in config.H2cAddress)
-        {
-            if (addr.Length <= 0) continue;
-            IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            H2CServer tcp = new(address) { backlog = config.Backlog };
-            tasks.Add(tcp.Serve(Wrapper));
-
-            Debug.WriteColorLine((int)LogLevel.Init, $"HTTP/1.1 (h2c) serving on http://{address}", (235, 211, 52));
-        }
-        foreach (var addr in config.O9Address)
-        {
-            if (addr.Length <= 0) continue;
-            IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            O9Server tcp = new(address) { backlog = config.Backlog };
-            tasks.Add(tcp.Serve(Wrapper));
-
-            Debug.WriteColorLine((int)LogLevel.Init, $"HTTP/0.9 serving on http://{address}", (235, 52, 52));
-        }
-        foreach (var addr in config.H2Address)
-        {
-            if (addr.Length <= 0) continue;
-            IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            H2Server tcp = new(address) { backlog = config.Backlog };
-            tasks.Add(tcp.Serve(Wrapper));
-
-            Debug.WriteColorLine((int)LogLevel.Init, $"HTTP/2 serving on http://{address}", (235, 143, 52)); // direct http2 rarely supported, hence the orange color
-        }
         foreach (var addr in config.SslAddress)
         {
             X509Certificate2 cert;
@@ -149,8 +123,37 @@ public class Program
             tls.alpn = alpn;
             tls.fallback = config.FallbackAlpn;
 
-            Debug.WriteColorLine((int)LogLevel.Init, $"HTTPS serving on https://{address}", (76, 235, 52));
+            Debug.WriteColorLine((int)LogLevel.Init, $"\e[2m- HTTPS serving on \e[22m\e[1mhttps://{address}", (76, 235, 52));
         }
+        foreach (var addr in config.H2cAddress)
+        {
+            if (addr.Length <= 0) continue;
+            IPEndPoint address = IPEndPoint.Parse(addr.Trim());
+            H2CServer tcp = new(address) { backlog = config.Backlog };
+            tasks.Add(tcp.Serve(Wrapper));
+
+            Debug.WriteColorLine((int)LogLevel.Init, $"\e[2m- HTTP/1.1 (h2c) serving on \e[22m\e[1mhttp://{address}", (235, 211, 52));
+        }
+        foreach (var addr in config.H2Address)
+        {
+            if (addr.Length <= 0) continue;
+            IPEndPoint address = IPEndPoint.Parse(addr.Trim());
+            H2Server tcp = new(address) { backlog = config.Backlog };
+            tasks.Add(tcp.Serve(Wrapper));
+
+            Debug.WriteColorLine((int)LogLevel.Init, $"\e[2m- HTTP/2 serving on \e[22m\e[1mhttp://{address}", (235, 143, 52));
+        }
+        foreach (var addr in config.O9Address)
+        {
+            if (addr.Length <= 0) continue;
+            IPEndPoint address = IPEndPoint.Parse(addr.Trim());
+            O9Server tcp = new(address) { backlog = config.Backlog };
+            tasks.Add(tcp.Serve(Wrapper));
+
+            Debug.WriteColorLine((int)LogLevel.Init, $"\e[2m- HTTP/0.9 serving on \e[22m\e[1mhttp://{address}", (235, 52, 52));
+        }
+        Debug.WriteLine((int)LogLevel.Init, "");
+        
 
 
         // O9Server test = new(IPEndPoint.Parse("0.0.0.0:3000"));

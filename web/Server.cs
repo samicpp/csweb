@@ -59,7 +59,7 @@ public class H2CServer(IPEndPoint address)
                 }
                 catch (Exception e)
                 {
-                    Debug.WriteLines((int)LogLevel.Warning, "failed to read client", e);
+                    Debug.WriteColorLine((int)LogLevel.Warning, $"failed to read client ({e.GetType()})", 2);
                 }
 
                 try
