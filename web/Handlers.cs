@@ -430,7 +430,7 @@ public class Handlers(AppConfig appconfig)
                     string tname = Path.GetFileNameWithoutExtension(name);
                     byte[] lib = await File.ReadAllBytesAsync(path);
                     Assembly assembly = Assembly.Load(lib);
-                    Type type = Type.GetType(tname);
+                    Type type = assembly.GetType(tname);
 
                     IHttpPlugin plugin = (IHttpPlugin)Activator.CreateInstance(type);
                     await plugin.Init(path);

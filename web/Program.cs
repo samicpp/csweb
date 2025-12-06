@@ -79,7 +79,7 @@ public partial class AppConfigContext : JsonSerializerContext { }
 
 public class Program
 {
-    public static string Version { get; } = "v2.7.7";
+    public static string Version { get; } = "v2.7.8";
 
     static AppConfig TryConfig()
     {
