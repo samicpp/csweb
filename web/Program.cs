@@ -71,7 +71,7 @@ public class AppConfig
 
 public class Program
 {
-    public static string Version { get; } = "v2.7.5";
+    public static string Version { get; } = "v2.7.6";
 
     static AppConfig TryConfig()
     {

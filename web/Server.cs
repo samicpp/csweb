@@ -272,7 +272,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
             Debug.WriteLine((int)LogLevel.Debug, $"alpn = \"{alpn}\"");
             if (alpn == "")
             {
-                Debug.WriteColorLine((int)LogLevel.Warning, "alpn not negotiated" + fallback != null ? $", falling back to {fallback}" : "", 3);
+                Debug.WriteColorLine((int)LogLevel.Warning, ", alpn not negotiated" + (fallback != null ? $". falling back to {fallback}" : ""), 3);
                 if (fallback != null) alpn = fallback;
             } 
 
