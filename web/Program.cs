@@ -79,7 +79,7 @@ public partial class AppConfigContext : JsonSerializerContext { }
 
 public class Program
 {
-    public static string Version { get; } = "v2.7.8";
+    public static string Version { get; } = "v2.7.9";
 
     static AppConfig TryConfig()
     {
@@ -252,6 +252,7 @@ public class Program
             dump += $"   Method: {client.Method}\n";
             dump += $"   Path: {client.Path.Trim()}\n";
             dump += $"   Version: {client.Version}\n";
+            if (client is Http1Client h1client) dump += $"   ClientSpecifiedVersion: {h1client.ClientVersion}\n";
             dump += $"   HeadersComplete: {client.HeadersComplete}\n";
             dump += $"   BodyComplete: {client.BodyComplete}\n";
             dump += $"   Headers.Count: {client.Headers.Count}\n";
