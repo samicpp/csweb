@@ -34,13 +34,24 @@ public class H2CServer(IPEndPoint address)
     public delegate Task Handler(IDualHttpSocket socket);
     public bool h2c = true;
     public int backlog = 10;
+    public bool dualmode = false;
 
     public async Task Serve(Handler handler)
     {
         using Socket listener = new(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        if (dualmode) listener.DualMode = true;
 
-        listener.Bind(address);
-        listener.Listen(backlog);
+        try
+        {
+            listener.Bind(address);
+            listener.Listen(backlog);
+            return;
+        }
+        catch (Exception e)
+        {
+            Debug.WriteColorLine((int)LogLevel.Fatal, $"! HTTP/1.1 server failed to start {e.GetType()}", 9);
+            Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}\n", 9);
+        }
 
         while (true)
         {
@@ -59,7 +70,7 @@ public class H2CServer(IPEndPoint address)
                 }
                 catch (Exception e)
                 {
-                    Debug.WriteColorLine((int)LogLevel.Warning, $"failed to read client ({e.GetType()})", 2);
+                    Debug.WriteColorLine((int)LogLevel.Warning, $"failed to read client ({e.GetType()})", 3);
                 }
 
                 try
@@ -107,7 +118,8 @@ public class H2CServer(IPEndPoint address)
                 }
                 catch(Exception e)
                 {
-                    Debug.WriteColorLine((int)LogLevel.Critical, $"server error occured\n{e}\n", 9);
+                    Debug.WriteColorLine((int)LogLevel.Critical, $"* server error occured {e.GetType()}", 9);
+                    Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}\n", 9);
                 }
             });
         }
@@ -119,13 +131,24 @@ public class H2Server(IPEndPoint address)
     public IPEndPoint address = address;
     public delegate Task Handler(IDualHttpSocket socket);
     public int backlog = 10;
+    public bool dualmode = false;
 
     public async Task Serve(Handler handler)
     {
         using Socket listener = new(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        if (dualmode) listener.DualMode = true;
 
-        listener.Bind(address);
-        listener.Listen(backlog);
+        try
+        {
+            listener.Bind(address);
+            listener.Listen(backlog);
+        }
+        catch (Exception e)
+        {
+            Debug.WriteColorLine((int)LogLevel.Fatal, $"! H2 server failed to start {e.GetType()}", 9);
+            Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}\n", 9);
+            return;
+        }
 
         while (true)
         {
@@ -174,7 +197,8 @@ public class H2Server(IPEndPoint address)
                 }
                 catch(Exception e)
                 {
-                    Debug.WriteColorLine((int)LogLevel.Critical, $"server error occured\n{e}\n", 9);
+                    Debug.WriteColorLine((int)LogLevel.Critical, $"* server error occured {e.GetType()}", 9);
+                    Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}\n", 9);
                 }
 
             });
@@ -187,13 +211,24 @@ public class O9Server(IPEndPoint address)
     public IPEndPoint address = address;
     public delegate Task Handler(IDualHttpSocket socket);
     public int backlog = 10;
+    public bool dualmode = false;
 
     public async Task Serve(Handler handler)
     {
         using Socket listener = new(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        if (dualmode) listener.DualMode = true;
 
-        listener.Bind(address);
-        listener.Listen(backlog);
+        try
+        {
+            listener.Bind(address);
+            listener.Listen(backlog);
+            return;
+        }
+        catch (Exception e)
+        {
+            Debug.WriteColorLine((int)LogLevel.Fatal, $"! 09 server failed to start {e.GetType()}", 9);
+            Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}\n", 9);
+        }
 
         while (true)
         {
@@ -218,6 +253,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
     X509Certificate2 cert = cert;
     public delegate Task Handler(IDualHttpSocket socket);
     public int backlog = 10;
+    public bool dualmode = false;
     public List<SslApplicationProtocol> alpn = [
         new SslApplicationProtocol("h2"), //SslApplicationProtocol.Http2,
         new SslApplicationProtocol("http/1.1"), //SslApplicationProtocol.Http11,
@@ -229,9 +265,19 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
     public async Task Serve(Handler handler)
     {
         using Socket listener = new(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        if (dualmode) listener.DualMode = true;
 
-        listener.Bind(address);
-        listener.Listen(backlog);
+        try
+        {
+            listener.Bind(address);
+            listener.Listen(backlog);
+        }
+        catch (Exception e)
+        {
+            Debug.WriteColorLine((int)LogLevel.Fatal, $"! tls server failed to start {e.GetType()}", 9);
+            Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}\n", 9);
+            return;
+        }
 
         SslServerAuthenticationOptions opt = new()
         {
@@ -265,7 +311,8 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
             }
             catch (Exception e)
             {
-                Debug.WriteColorLine((int)LogLevel.Critical, $"tls authentication error occured\n{e}\n", 9);
+                Debug.WriteColorLine((int)LogLevel.Critical, $"* tls authentication error occured {e.GetType()}", 9);
+                Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}\n", 9);
             }
             using TlsSocket tls = new(sslStream);
 
@@ -332,19 +379,20 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                         }
                         catch (IOException ioe) when (ioe.InnerException is SocketException e && (e.SocketErrorCode == SocketError.ConnectionReset || e.SocketErrorCode == SocketError.Shutdown || e.SocketErrorCode == SocketError.ConnectionAborted || e.ErrorCode == 32 /* Broken Pipe */))
                         {
-                            Debug.WriteColorLine((int)LogLevel.Critical, "connection ended abruptly", 1);
+                            Debug.WriteColorLine((int)LogLevel.Critical, "* connection ended abruptly", 1);
                             break;
                         }
                     }
                 }
                 catch (Exception e)
                 {
-                    Debug.WriteColorLine((int)LogLevel.Critical, $"server error occured\n{e}\n", 9);
+                    Debug.WriteColorLine((int)LogLevel.Critical, $"* server error occured {e.GetType()}", 9);
+                    Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}\n", 9);
                 }
             }
             else
             {
-                Debug.WriteLine((int)LogLevel.Warning, $"couldnt handle alpn {alpn}");
+                Debug.WriteColorLine((int)LogLevel.Warning, $"couldnt use alpn \"{alpn}\"", 3);
 
                 // using Http1Socket sock = new(tls, end);
                 // sock.SetHeader("Connection", "close");
@@ -353,11 +401,12 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
         }
         catch (SocketException e) when (e.SocketErrorCode == SocketError.ConnectionReset || e.SocketErrorCode == SocketError.Shutdown || e.SocketErrorCode == SocketError.ConnectionAborted)
         {
-            Debug.WriteColorLine((int)LogLevel.Critical, "socket unexpectedly closed", 9);
+            Debug.WriteColorLine((int)LogLevel.Critical, "* socket unexpectedly closed", 9);
         }
         catch (Exception e)
         {
-            Debug.WriteColorLine((int)LogLevel.Critical, $"tls error occured\n{e}\n", 9);
+            Debug.WriteColorLine((int)LogLevel.Critical, $"* tls error occured {e.GetType()}", 9);
+            Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}", 9);
         }
     }
 }

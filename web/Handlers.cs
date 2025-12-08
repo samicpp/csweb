@@ -38,10 +38,11 @@ public class Handlers(AppConfig appconfig)
 {
     string BaseDir { get => appconfig.ServeDir; }
     readonly AppConfig appconfig = appconfig;
-    readonly Regex remove1 = new(@"(\?.*$)|(\#.*$)|(\:.*$)", RegexOptions.Compiled);
-    readonly Regex remove2 = new(@"\/\.{1,2}(?=\/|$)", RegexOptions.Compiled);
-    readonly Regex collapse = new(@"\/+", RegexOptions.Compiled);
-    readonly Regex remove3 = new(@"/$", RegexOptions.Compiled);
+    static readonly Regex remove1 = new(@"(\?.*$)|(\#.*$)|(\:.*$)", RegexOptions.Compiled);
+    static readonly Regex remove2 = new(@"\/\.{1,2}(?=\/|$)", RegexOptions.Compiled);
+    static readonly Regex remove3 = new(@"/$", RegexOptions.Compiled);
+    static readonly Regex collapse = new(@"\/+", RegexOptions.Compiled);
+    static readonly Regex domain = new(@"([a-z|0-9|\-]+\.)?([a-z|0-9|\-]+)(?=:|$)", RegexOptions.Compiled);
     readonly Dictionary<string, (DateTime, string, byte[], Compression?)> cache = [];
     readonly Dictionary<string, (string, string)> ccache = [];
 
@@ -200,7 +201,7 @@ public class Handlers(AppConfig appconfig)
             Debug.WriteLine((int)LogLevel.Debug, $"routes path '{extra}' -> '{routerPath}' '{fullPath}'");
         }
 
-        Debug.WriteColorLine((int)LogLevel.Info, $"↓ {socket.Client.Method} '{fullhost}'", 8);
+        Debug.WriteColorLine((int)LogLevel.Info, $"↓ {socket.Client.Method} '{fullhost}' {socket.EndPoint}", 8);
         Debug.WriteColorLine((int)LogLevel.Log, $"full path = {fullPath}", 5);
         if (routerPath != null) Debug.WriteColorLine((int)LogLevel.Log, $"router path = {routerPath}", 5);
 
@@ -461,6 +462,10 @@ public class Handlers(AppConfig appconfig)
             string utext = await File.ReadAllTextAsync(path);
             EndPoint ip = socket.EndPoint ?? IPEndPoint.Parse("[::]:0");
             string addr = ip.ToString();
+            Match dmm = domain.Match(socket.Client.Host);
+            string dm = socket.Client.Host;
+
+            if (dmm.Success) dm = dmm.Value;
 
             if (ip is IPEndPoint end)
             {
@@ -475,7 +480,8 @@ public class Handlers(AppConfig appconfig)
                 { "%HOST%", socket.Client.Host },
                 { "%SCHEME%", socket.IsHttps ? "https" : "http" },
                 { "%BASE_DIR%", BaseDir },
-                { "%USER_AGENT%", socket.Client.Headers.GetValueOrDefault("user-agent")?[0] ?? "null" }
+                { "%USER_AGENT%", socket.Client.Headers.GetValueOrDefault("user-agent")?[0] ?? "null" },
+                { "%DOMAIN%", dm },
             };
 
             foreach (var (k, v) in vars)

@@ -39,8 +39,9 @@ public class AppConfig
     [ConfigurationKeyName("cwd")] public string WorkDir { get; init; } = null;
     [ConfigurationKeyName("serve-dir")] public string ServeDir { get; init; } = "./";
     [ConfigurationKeyName("backlog")] public int Backlog { get; init; } = 10;
+    [ConfigurationKeyName("dualmode")] public bool DualMode { get; init; } = false;
 
-    [ConfigurationKeyName("loglevel")] public int? Loglevel { get; init; } = (int)(LogLevel.Info | LogLevel.Init | LogLevel.Warning | LogLevel.SoftError | LogLevel.Error | LogLevel.Fatal | LogLevel.Assert);
+    [ConfigurationKeyName("loglevel")] public int? Loglevel { get; init; } = (int)(LogLevel.Info | LogLevel.Init | LogLevel.Warning | LogLevel.SoftError | LogLevel.Error | LogLevel.Critical | LogLevel.Fatal | LogLevel.Assert);
 
 
     public static AppConfig Default() => new() { H2cAddress = [ "0.0.0.0:8080" ], SslAddress = [ "0.0.0.0:4433" ], ServeDir = "./public" };
@@ -79,7 +80,7 @@ public partial class AppConfigContext : JsonSerializerContext { }
 
 public class Program
 {
-    public static string Version { get; } = "v2.7.9";
+    public static string Version { get; } = "v2.7.10";
 
     static AppConfig TryConfig()
     {
@@ -132,7 +133,7 @@ public class Program
 
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            TlsServer tls = new(address, cert) { backlog = config.Backlog };
+            TlsServer tls = new(address, cert) { backlog = config.Backlog, dualmode = config.DualMode };
             tasks.Add(tls.Serve(Wrapper));
 
             tls.alpn = alpn;
@@ -144,7 +145,7 @@ public class Program
         {
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            H2CServer tcp = new(address) { backlog = config.Backlog };
+            H2CServer tcp = new(address) { backlog = config.Backlog, dualmode = config.DualMode };
             tasks.Add(tcp.Serve(Wrapper));
 
             Debug.WriteColorLine((int)LogLevel.Init, $"\e[2m- HTTP/1.1 (h2c) serving on \e[22m\e[1mhttp://{address}", (235, 211, 52));
@@ -153,7 +154,7 @@ public class Program
         {
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            H2Server tcp = new(address) { backlog = config.Backlog };
+            H2Server tcp = new(address) { backlog = config.Backlog, dualmode = config.DualMode };
             tasks.Add(tcp.Serve(Wrapper));
 
             Debug.WriteColorLine((int)LogLevel.Init, $"\e[2m- HTTP/2 serving on \e[22m\e[1mhttp://{address}", (235, 143, 52));
@@ -162,7 +163,7 @@ public class Program
         {
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            O9Server tcp = new(address) { backlog = config.Backlog };
+            O9Server tcp = new(address) { backlog = config.Backlog, dualmode = config.DualMode };
             tasks.Add(tcp.Serve(Wrapper));
 
             Debug.WriteColorLine((int)LogLevel.Init, $"\e[2m- HTTP/0.9 serving on \e[22m\e[1mhttp://{address}", (235, 52, 52));
@@ -227,7 +228,18 @@ public class Program
         // await node.Execute("System.Console.WriteLine(\"hello world\");", test, ScriptType.CSharp);
 
         Debug.WriteLine((int)LogLevel.Debug, "waiting untill server end");
-        foreach (var task in tasks) await task;
+        foreach (var task in tasks)
+        {
+            try
+            {
+                await task;
+            }
+            catch(Exception e)
+            {
+                Debug.WriteColorLine((int)LogLevel.Fatal, $"! server exception {e.GetType()}", 9);
+                Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}\n", 9);
+            }
+        }
 
         Debug.WriteLine((int)LogLevel.Verbose, "server done");
     }
@@ -285,7 +297,8 @@ public class Program
         }
         catch (Exception e)
         {
-            Debug.WriteColorLine((int)LogLevel.Critical, $"wrapper error occured\n{e}\n", 9);
+            Debug.WriteColorLine((int)LogLevel.Critical, $"* wrapper error occured {e.GetType()}", 9);
+            Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}", 9);
         }
         finally
         {
