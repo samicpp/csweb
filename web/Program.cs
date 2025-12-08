@@ -26,22 +26,22 @@ using System.Text.Json;
 
 public class AppConfig
 {
-    [ConfigurationKeyName("h2c-address")] public string[] H2cAddress { get; init; } = [];
-    [ConfigurationKeyName("09-address")] public string[] O9Address { get; init; } = [];
-    [ConfigurationKeyName("h2-address")] public string[] H2Address { get; init; } = [];
-    [ConfigurationKeyName("ssl-address")] public string[] SslAddress { get; init; } = [];
+    [JsonPropertyName("h2c-address")][ConfigurationKeyName("h2c-address")] public string[] H2cAddress { get; init; } = [];
+    [JsonPropertyName("09-address")] [ConfigurationKeyName("09-address")] public string[] O9Address { get; init; } = [];
+    [JsonPropertyName("h2-address")] [ConfigurationKeyName("h2-address")] public string[] H2Address { get; init; } = [];
+    [JsonPropertyName("ssl-address")] [ConfigurationKeyName("ssl-address")] public string[] SslAddress { get; init; } = [];
 
-    [ConfigurationKeyName("p12-cert")] public string P12Cert { get; init; } = null;
-    [ConfigurationKeyName("p12-pass")] public string P12pass { get; init; } = null;
-    [ConfigurationKeyName("alpn")] public string[] Alpn { get; init; } = [ "h2", "http/1.1" ];
-    [ConfigurationKeyName("fallback-alpn")] public string FallbackAlpn { get; init; } = null;
+    [JsonPropertyName("p12-cert")] [ConfigurationKeyName("p12-cert")] public string P12Cert { get; init; } = null;
+    [JsonPropertyName("p12-pass")] [ConfigurationKeyName("p12-pass")] public string P12pass { get; init; } = null;
+    [JsonPropertyName("alpn")] [ConfigurationKeyName("alpn")] public string[] Alpn { get; init; } = [ "h2", "http/1.1" ];
+    [JsonPropertyName("fallback-alpn")] [ConfigurationKeyName("fallback-alpn")] public string FallbackAlpn { get; init; } = null;
 
-    [ConfigurationKeyName("cwd")] public string WorkDir { get; init; } = null;
-    [ConfigurationKeyName("serve-dir")] public string ServeDir { get; init; } = "./";
-    [ConfigurationKeyName("backlog")] public int Backlog { get; init; } = 10;
-    [ConfigurationKeyName("dualmode")] public bool DualMode { get; init; } = false;
+    [JsonPropertyName("cwd")] [ConfigurationKeyName("cwd")] public string WorkDir { get; init; } = null;
+    [JsonPropertyName("serve-dir")] [ConfigurationKeyName("serve-dir")] public string ServeDir { get; init; } = "./";
+    [JsonPropertyName("backlog")] [ConfigurationKeyName("backlog")] public int Backlog { get; init; } = 10;
+    [JsonPropertyName("dualmode")] [ConfigurationKeyName("dualmode")] public bool DualMode { get; init; } = false;
 
-    [ConfigurationKeyName("loglevel")] public int? Loglevel { get; init; } = (int)(LogLevel.Info | LogLevel.Init | LogLevel.Warning | LogLevel.SoftError | LogLevel.Error | LogLevel.Critical | LogLevel.Fatal | LogLevel.Assert);
+    [JsonPropertyName("loglevel")] [ConfigurationKeyName("loglevel")] public int? Loglevel { get; init; } = (int)(LogLevel.Info | LogLevel.Init | LogLevel.Warning | LogLevel.SoftError | LogLevel.Error | LogLevel.Critical | LogLevel.Fatal | LogLevel.Assert);
 
 
     public static AppConfig Default() => new() { H2cAddress = [ "0.0.0.0:8080" ], SslAddress = [ "0.0.0.0:4433" ], ServeDir = "./public" };
@@ -80,7 +80,7 @@ public partial class AppConfigContext : JsonSerializerContext { }
 
 public class Program
 {
-    public static string Version { get; } = "v2.7.10";
+    public static string Version { get; } = "v2.7.11";
 
     static AppConfig TryConfig()
     {

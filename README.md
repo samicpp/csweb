@@ -75,22 +75,28 @@ the server will set these headers regardless of the request.
 
 ## Files
 besides normal files the server also supports some files that invoke custom behaviour <br/>
-- `*.3xx.redirect`: redirects to the contents of the file. is a "special file"
-- `*.var.*`: contents get served with the correct content-type. is a "special file"
-- `*.link`: acts as a sort of symlink, needs to contain a absolute path or relative path to the cwd. is a "special file"
-- `*.dll`: loads that dll, hands it over control, and awaits it. dlls only get reimported if they change
-- `*.s.cs` | `*.s.fs` | `*.s.ps1`: **not yet supported**. hands over control to these sippets
-- `*.ffi.dll` | `*.ffi.so`: **not yet supported**. loads a native library, passes it function pointers for "basic" http response and then invokes another function.
+| file extension | description |
+|--|--|
+| `*.3xx.redirect` | redirects to the contents of the file. is a "special file" |
+| `*.var.*` | contents get served with the correct content-type. is a "special file" |
+| `*.link` | acts as a sort of symlink, needs to contain a absolute path or relative path to the cwd. is a "special file" |
+| `*.dll` | loads that dll, hands it over control, and awaits it. dlls only get reimported if they change |
+| `*.s.cs` \| `*.s.fs` \| `*.s.ps1` | **not yet supported**. hands over control to these sippets |
+| `*.ffi.dll` \| `*.ffi.so` | **not yet supported**. loads a native library, passes it function pointers for "basic" http response and then invokes another function. |
 
 ### Special files
 these files get read as pieces of text and then replaces certain strings with different strings <br/>
-- `"%IP%"`: gets replaced by the clients remote address
-- `"%FULL_IP%"`: gets replaced by the clients remote address and port
-- `%PATH%`: gets replaced by the path
-- `%HOST%`: gets replaced by the host
-- `%SCHEME%`: gets replaced by `http` or `https`
-- `%BASE_DIR%`: gets replaced by the serve directory
-- `%USER_AGENT%`: gets replaced by the full user agent header
+| variable | description |
+|--|--|
+| `"%IP%"` | gets replaced by the clients remote address |
+| `"%FULL_IP%"` | gets replaced by the clients remote address and port |
+| `%PATH%` | gets replaced by the path |
+| `%HOST%` | gets replaced by the host |
+| `%SCHEME%` | gets replaced by `http` or `https` |
+| `%BASE_DIR%` | gets replaced by the serve directory |
+| `%USER_AGENT%` | gets replaced by the full user agent header |
+| `%DOMAIN%` | gets replaced by an estimated guess of the domain (`www.example.com` -> `example.com`) |
+
 
 ## TODO:
 - [x] allow serving files
@@ -102,4 +108,4 @@ these files get read as pieces of text and then replaces certain strings with di
 - [ ] make cache use compressed data & allow pre compressed files
 - [ ] add script support
 - [ ] ~~add regex file matching config files~~
-- [ ] add protocol detection
+- [ ] ~~add protocol detection~~ planned for v4.x.x
