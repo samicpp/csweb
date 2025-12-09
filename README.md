@@ -48,13 +48,14 @@ this file should contain a syntex similar to the following:
     }
 }
 ```
-- `match-type` string = "host" | "start" | "end" | "regex" | "path-start" | "scheme" | "protocol"
+- `match-type` string = "host" | "start" | "end" | "regex" | "path-start" | "scheme" | "protocol" | "domain"
 - - `host`: matches the host from the host header provided by the client
 - - `start`: matches the start of the whole requested uri (`scheme://host/path`)
 - - `end`: matches the end of the whole requested uri
 - - `path-start`: matches only the start of the requested path
 - - `scheme`: matches the scheme, always `http` or `https` unless using a non official version
 - - `protocol`: matches the protocol used (http version), always `HTTP/1.1` | `HTTP/2` (| `HTTP/3` planned)
+- - `domain`: matches the domain (e.g. `www.example.com` matches domain `example.com`)
 - `dir` is used to decide the requested file `CWD/ServeDir/SubDir/Path`
 - `router` specifies a file to be used instead of path to calculate destination. always a file
 
@@ -62,6 +63,7 @@ the server will attempt to match each item starting at the top (skipping over `d
 if this file isnt present it will attempt to fetch content from the serve directory directly. <br/>
 if nothing was matched it will try to use the `default` entry. required to be present <br/>
 when the file is changed the server will refresh its configuration. if the file is removed it wont remove the config <br/>
+matching is case insensitive <br/>
 
 ### Static Headers
 in the same location where the destination settings are located, you can also optionally include a `headers.json` file. <br/>

@@ -118,7 +118,7 @@ public class Handlers(AppConfig appconfig)
             Debug.WriteLine((int)LogLevel.Debug, "no compression");
         }
 
-        string fullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath("/" + socket.Client.Path)}";
+        string fullhost = $"{(socket.IsHttps ? "https" : "http")}[{socket.Client.Version}]://{socket.Client.Host}{CleanPath("/" + socket.Client.Path)}";
 
         // bool fresh = false;
         string extra = "";
@@ -168,18 +168,23 @@ public class Handlers(AppConfig appconfig)
         else
         {
             bool cmatch = false;
+            Match dmm = domain.Match(socket.Client.Host);
+            string dm = socket.Client.Host;
+            if (dmm.Success) dm = dmm.Value;
+
             foreach (var (k, v) in config)
             {
                 if (k == "default") continue;
                 var type = v.MatchType;
                 if (
-                    (type == "host" && socket.Client.Host == k) ||
+                    (type == "host" && k.Equals(socket.Client.Host, StringComparison.CurrentCultureIgnoreCase)) ||
                     (type == "start" && fullhost.StartsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
                     (type == "end" && fullhost.EndsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
                     (type == "regex" && new Regex(k).IsMatch(fullhost)) ||
                     (type == "path-start" && socket.Client.Path.StartsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
                     (type == "scheme" && k.Equals(socket.IsHttps ? "https" : "http", StringComparison.CurrentCultureIgnoreCase))  ||
-                    (type == "protocol" && k.Equals(socket.Client.Version, StringComparison.CurrentCultureIgnoreCase)) 
+                    (type == "protocol" && k.Equals(socket.Client.Version, StringComparison.CurrentCultureIgnoreCase)) ||
+                    (type == "domain" && k.Equals(dm, StringComparison.CurrentCultureIgnoreCase))
                 )
                 {
                     extra = v.Directory;
@@ -482,6 +487,7 @@ public class Handlers(AppConfig appconfig)
                 { "%BASE_DIR%", BaseDir },
                 { "%USER_AGENT%", socket.Client.Headers.GetValueOrDefault("user-agent")?[0] ?? "null" },
                 { "%DOMAIN%", dm },
+                { "%VERSION%", socket.Client.Version },
             };
 
             foreach (var (k, v) in vars)
