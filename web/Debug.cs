@@ -60,6 +60,10 @@ public class Debug
 
 
     public static int? logLevel = null; 
+    public static void Write<T>(int level, T value)
+    {
+        if (logLevel == null || (logLevel & level) != 0) Console.Write(value);
+    }
     public static void WriteLine<T>(int level, T value)
     {
         if (logLevel == null || (logLevel & level) != 0) Console.WriteLine(value);

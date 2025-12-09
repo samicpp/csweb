@@ -80,7 +80,7 @@ public partial class AppConfigContext : JsonSerializerContext { }
 
 public class Program
 {
-    public static string Version { get; } = "v2.7.12";
+    public static string Version { get; } = "v2.7.14";
 
     static AppConfig TryConfig()
     {
@@ -121,7 +121,7 @@ public class Program
         Debug.WriteColorLine((int)LogLevel.Init, $"csweb {Version}", (52, 235, 210));
         Debug.WriteColorLine((int)LogLevel.Verbose, $"cwd = {Directory.GetCurrentDirectory()}", 8);
         Debug.WriteColorLine((int)LogLevel.Verbose, $"serve-dir = {config.ServeDir}", 8);
-        Debug.WriteLine((int)LogLevel.Init, "");
+        Debug.WriteLine((int)LogLevel.Init, " ");
 
         List<Task> tasks = [];
 
@@ -168,7 +168,7 @@ public class Program
 
             Debug.WriteColorLine((int)LogLevel.Init, $"\e[2m- HTTP/0.9 serving on \e[22m\e[1mhttp://{address}", (235, 52, 52));
         }
-        Debug.WriteLine((int)LogLevel.Init, "");
+        Debug.WriteLine((int)LogLevel.Init, " ");
         
 
 
