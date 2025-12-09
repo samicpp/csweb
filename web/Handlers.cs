@@ -118,7 +118,7 @@ public class Handlers(AppConfig appconfig)
             Debug.WriteLine((int)LogLevel.Debug, "no compression");
         }
 
-        string fullhost = $"{(socket.IsHttps ? "https" : "http")}[{socket.Client.Version}]://{socket.Client.Host}{CleanPath("/" + socket.Client.Path)}";
+        string fullhost = $"[{socket.Client.Version}]{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath("/" + socket.Client.Path)}";
 
         // bool fresh = false;
         string extra = "";
