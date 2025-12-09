@@ -118,7 +118,8 @@ public class Handlers(AppConfig appconfig)
             Debug.WriteLine((int)LogLevel.Debug, "no compression");
         }
 
-        string fullhost = $"[{socket.Client.Version}]{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath("/" + socket.Client.Path)}";
+        string mfullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath("/" + socket.Client.Path)}";
+        string fullhost = $"[{socket.Client.Version}]{mfullhost}";
 
         // bool fresh = false;
         string extra = "";
@@ -178,9 +179,9 @@ public class Handlers(AppConfig appconfig)
                 var type = v.MatchType;
                 if (
                     (type == "host" && k.Equals(socket.Client.Host, StringComparison.CurrentCultureIgnoreCase)) ||
-                    (type == "start" && fullhost.StartsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
-                    (type == "end" && fullhost.EndsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
-                    (type == "regex" && new Regex(k).IsMatch(fullhost)) ||
+                    (type == "start" && mfullhost.StartsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
+                    (type == "end" && mfullhost.EndsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
+                    (type == "regex" && new Regex(k).IsMatch(mfullhost)) ||
                     (type == "path-start" && socket.Client.Path.StartsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
                     (type == "scheme" && k.Equals(socket.IsHttps ? "https" : "http", StringComparison.CurrentCultureIgnoreCase))  ||
                     (type == "protocol" && k.Equals(socket.Client.Version, StringComparison.CurrentCultureIgnoreCase)) ||
@@ -409,7 +410,8 @@ public class Handlers(AppConfig appconfig)
         var dot = name.Split(".");
         var ext = dot.Last();
         var dmt = MimeTypes.types.GetValueOrDefault(ext) ?? "application/octet-stream";
-        string fullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath(socket.Client.Path)}";
+        // string fullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath(socket.Client.Path)}";
+        string fullhost = $"[{socket.Client.Version}]{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath("/" + socket.Client.Path)}";
 
 
         if (name.EndsWith(".blank"))
