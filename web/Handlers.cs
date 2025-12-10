@@ -26,6 +26,13 @@ public readonly struct RouteConfig()
     [JsonPropertyName("match-type")] public string MatchType { get; init; } = "host";
     [JsonPropertyName("dir")] public string Directory { get; init; } = ".";
     [JsonPropertyName("router")] public string Router { get; init; } = null;
+
+    // [JsonPropertyName("400")] public string E400 { get; init; } = null;
+    [JsonPropertyName("404")] public string E404 { get; init; } = null;
+    [JsonPropertyName("409")] public string E409 { get; init; } = null;
+    // [JsonPropertyName("500")] public string E500 { get; init; } = null;
+    // [JsonPropertyName("501")] public string E501 { get; init; } = null;
+    
 }
 
 [JsonSerializable(typeof(Dictionary<string, RouteConfig>))]
@@ -44,7 +51,7 @@ public class Handlers(AppConfig appconfig)
     static readonly Regex collapse = new(@"\/+", RegexOptions.Compiled);
     static readonly Regex domain = new(@"([a-z|0-9|\-]+\.)?([a-z|0-9|\-]+)(?=:|$)", RegexOptions.Compiled);
     readonly Dictionary<string, (DateTime, string, byte[], Compression?)> cache = [];
-    readonly Dictionary<string, (string, string)> ccache = [];
+    readonly Dictionary<string, (string, string, RouteConfig)> ccache = [];
 
     DateTime configTime;
     Dictionary<string, RouteConfig> config = new()
@@ -77,7 +84,7 @@ public class Handlers(AppConfig appconfig)
         if (!socket.Client.IsValid)
         {
             Debug.WriteLine((int)LogLevel.Verbose, "client is not valid");
-            await ErrorHandler(socket, "", 400);
+            await ErrorHandler(socket, new(), "", 400);
             return;
         }
 
@@ -161,10 +168,12 @@ public class Handlers(AppConfig appconfig)
 
         string fullPath;
         string routerPath;
+        RouteConfig conf = new();
         if (ccache.TryGetValue(fullhost, out var path))
         {
             fullPath = path.Item1;
             routerPath = path.Item2;
+            conf = path.Item3;
         }
         else
         {
@@ -191,6 +200,7 @@ public class Handlers(AppConfig appconfig)
                     extra = v.Directory;
                     router = v.Router;
                     cmatch = true;
+                    conf = v;
                     break;
                 }
             }
@@ -198,13 +208,19 @@ public class Handlers(AppConfig appconfig)
             {
                 extra = def.Directory;
                 router = def.Router;
+                conf = def;
             }
+            // else if (!cmatch)
+            // {
+            //     conf = new() { };
+            // }
 
             // string rawFullPath = $"{BaseDir}/{extra}/{socket.Client.Path.Trim()}";
             routerPath = router == null ? null : Path.GetFullPath($"{BaseDir}/{extra}/{router}");
             fullPath = Path.GetFullPath(CleanPath($"{BaseDir}/{extra}/", socket.Client.Path.Trim()));
-            ccache[fullhost] = (fullPath, routerPath);
-            Debug.WriteLine((int)LogLevel.Debug, $"routes path '{extra}' -> '{routerPath}' '{fullPath}'");
+            ccache[fullhost] = (fullPath, routerPath, conf);
+            Debug.WriteLine((int)LogLevel.Debug, $"routes path '{conf.Directory}' -> '{routerPath}' '{fullPath}'");
+            Debug.WriteLine((int)LogLevel.Debug, $"error files 404:'{conf.E404}' 409:'{conf.E409}'");
         }
 
         Debug.WriteColorLine((int)LogLevel.Info, $"↓ {socket.Client.Method} '{fullhost}' {socket.EndPoint}", 8);
@@ -251,7 +267,7 @@ public class Handlers(AppConfig appconfig)
                 }
             }
 
-            if (!cached) await Handle(socket, routerPath, info, fullPath);
+            if (!cached) await Handle(socket, conf, routerPath, info, fullPath);
         }
         else
         {
@@ -286,11 +302,11 @@ public class Handlers(AppConfig appconfig)
                 }
             }
 
-            if (!cached) await Handle(socket, fullPath, info, null);
+            if (!cached) await Handle(socket, conf, fullPath, info, null);
         }
     }
 
-    public async Task Handle(IDualHttpSocket socket, string fullPath, FileSystemInfo info, string normalPath)
+    public async Task Handle(IDualHttpSocket socket, RouteConfig conf, string fullPath, FileSystemInfo info, string normalPath)
     {
         // FileSystemInfo info = new FileInfo(fullPath);
         // if (!info.Exists) info = new DirectoryInfo(fullPath);
@@ -307,62 +323,94 @@ public class Handlers(AppConfig appconfig)
             // socket.StatusMessage = "Not Found";
             // socket.SetHeader("Content-Type", "text/plain");
             // await socket.CloseAsync("404 Not Found");
-            await ErrorHandler(socket, fullPath, 404);
+            await ErrorHandler(socket, conf, fullPath, 404);
         }
         else if (info is FileInfo fi)
         {
-            await FileHandler(socket, fullPath, normalPath);
+            await FileHandler(socket, conf, fullPath, normalPath);
         }
         else if (info is DirectoryInfo di)
         {
-            await DirectoryHandler(socket, fullPath, normalPath);
+            await DirectoryHandler(socket, conf, fullPath, normalPath);
         }
         else
         {
-            await ErrorHandler(socket, fullPath, 501);
+            await ErrorHandler(socket, conf, fullPath, 501);
         }
     }
 
-    public async Task ErrorHandler(IDualHttpSocket socket, string path, int code, string status = "", string message = "", string debug = "")
+    public async Task ErrorHandler(IDualHttpSocket socket, RouteConfig conf, string path, int code, string status = "", string message = "", string debug = "")
     {
         socket.SetHeader("Content-Type", "text/plain");
         // Debug.WriteColorLine((int)LogLevel.Error, $"{code} error", 1);
+
+        string e404 = null;
+        if (conf.E404 != null )
+        {
+            string u404 = Path.GetFullPath($"{BaseDir}/{conf.Directory}/{conf.E404}");
+            if (new FileInfo(u404).Exists) e404 = u404;
+            Debug.WriteLine((int)LogLevel.Debug, $"404 error file present {u404}");
+        }
+
+        string e409 = null;
+        if (conf.E409 != null )
+        {
+            string u409 = Path.GetFullPath($"{BaseDir}/{conf.Directory}/{conf.E409}");
+            if (new FileInfo(u409).Exists) e409 = u409;
+            Debug.WriteLine((int)LogLevel.Debug, $"409 error file present {u409}");
+        }
 
         switch (code)
         {
             case 400:
                 socket.Status = 400;
                 socket.StatusMessage = "Bad Request";
-                await socket.CloseAsync($"fix your client idk\n");
+                await socket.CloseAsync($"broken request\n");
                 Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} invalid client", (255, 119, 0));
                 break;
 
             case 404:
                 socket.Status = 404;
                 socket.StatusMessage = "Not Found";
-                await socket.CloseAsync($"{socket.Client.Path} Not Found\n");
-                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} {path}", (255, 119, 0));
+                if (e404 != null)
+                {
+                    await FileHandler(socket, conf, e404, socket.Client.Path);
+                    Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m, {code} '{path}' error file used", (255, 119, 0));
+                }
+                else
+                {
+                    await socket.CloseAsync($"{socket.Client.Path} Not Found\n");
+                    Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} '{path}'", (255, 119, 0));
+                }
                 break;
 
             case 409:
                 socket.Status = 409;
                 socket.StatusMessage = "Conflict";
-                await socket.CloseAsync("Something went wrong\n");
-                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} no index", (255, 119, 0));
+                if (e409 != null)
+                {
+                    await FileHandler(socket, conf, e409, socket.Client.Path);
+                    Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m, {code} 'no index' error file used", (255, 119, 0));
+                }
+                else
+                {
+                    await socket.CloseAsync("Something went wrong\n");
+                    Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} 'no index'", (255, 119, 0));
+                }
                 break;
 
             case 500:
                 socket.Status = 500;
                 socket.StatusMessage = "Internal Server Error";
                 await socket.CloseAsync($"{message}:\n{debug}");
-                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} {message}", (255, 119, 0));
+                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} '{message}'", (255, 119, 0));
                 break;
 
             case 501:
                 socket.Status = 501;
                 socket.StatusMessage = "Not Implemented";
                 await socket.CloseAsync($"Couldnt handle {socket.Client.Path}\n");
-                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} not implemented", (255, 119, 0));
+                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {code} 'not implemented'", (255, 119, 0));
                 break;
 
             default:
@@ -374,7 +422,7 @@ public class Handlers(AppConfig appconfig)
         }
     }
     
-    public async Task DirectoryHandler(IDualHttpSocket socket, string path, string normalPath)
+    public async Task DirectoryHandler(IDualHttpSocket socket, RouteConfig conf, string path, string normalPath)
     {
         // await socket.CloseAsync("directory");
         // Console.WriteLine("directory " + path);
@@ -389,22 +437,22 @@ public class Handlers(AppConfig appconfig)
         if (found != null)
         {
             Debug.WriteLine((int)LogLevel.Log, $"found file {path}/{found}");
-            await FileHandler(socket, $"{path}/{found}", normalPath);
+            await FileHandler(socket, conf, $"{path}/{found}", normalPath);
         }
         else
         {
             Debug.WriteLine((int)LogLevel.Log, "found no files");
-            await ErrorHandler(socket, path, 409);
+            await ErrorHandler(socket, conf, path, 409);
         }
     }
 
-    Dictionary<string, (DateTime, IHttpPlugin)> plugins = [];
-    public async Task FileHandler(IDualHttpSocket socket, string path, string normalPath)
+    readonly Dictionary<string, (DateTime, IHttpPlugin)> plugins = [];
+    public async Task FileHandler(IDualHttpSocket socket, RouteConfig conf, string path, string normalPath)
     {
         // await socket.CloseAsync("file");
         // TODO: files over 500mb need to be streamed
         var info = new FileInfo(path);
-        var str = info.OpenRead();
+        // using var str = info.OpenRead();
         var name = info.Name;
 
         var dot = name.Split(".");
@@ -419,7 +467,7 @@ public class Handlers(AppConfig appconfig)
             socket.Status = 204;
             socket.StatusMessage = "No Content";
             await socket.CloseAsync();
-            Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ 204 blank", 2);
+            Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {socket.Status} blank", 2);
         }
         #if !AOT_BUILD
         else if (name.EndsWith(".dll"))
@@ -450,7 +498,7 @@ public class Handlers(AppConfig appconfig)
             }
             catch (Exception e)
             {
-                await ErrorHandler(socket, path, 500, "", "plugin error", e.ToString());
+                await ErrorHandler(socket, conf, path, 500, "", "plugin error", e.ToString());
             }
         }
         #else
@@ -502,7 +550,7 @@ public class Handlers(AppConfig appconfig)
                 Debug.WriteLine((int)LogLevel.Debug, "var file");
                 socket.SetHeader("Content-Type", dmt);
                 await socket.CloseAsync(utext);
-                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ 200 '{path}' ({utext.Length})", 2);
+                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {socket.Status} '{path}' ({utext.Length})", 2);
             }
             else if (name.EndsWith(".redirect"))
             {
@@ -528,7 +576,7 @@ public class Handlers(AppConfig appconfig)
                 if (!info.Exists) ninfo = new DirectoryInfo(utext);
                 if (info.Exists) ninfo = info.ResolveLinkTarget(returnFinalTarget: true) ?? ninfo;
 
-                await Handle(socket, utext.Trim(), ninfo, normalPath);
+                await Handle(socket, conf, utext.Trim(), ninfo, normalPath);
             }
         }
         else if (name.EndsWith(".br") || name.EndsWith(".gz"))
@@ -545,7 +593,7 @@ public class Handlers(AppConfig appconfig)
             byte[] bytes = await File.ReadAllBytesAsync(path);
             await socket.CloseAsync(bytes);
             cache[fullhost] = (info.LastWriteTime, dmt, bytes, enc == "br" ? Compression.Brotli : Compression.Gzip);
-            Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ 200 '{path}' ({bytes.Length})", 2);
+            Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {socket.Status} '{path}' ({bytes.Length})", 2);
         }
         else
         {
@@ -553,7 +601,7 @@ public class Handlers(AppConfig appconfig)
             byte[] bytes = await File.ReadAllBytesAsync(path);
             await socket.CloseAsync(bytes);
             cache[fullhost] = (info.LastWriteTime, dmt, bytes, null);
-            Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ 200 '{path}' ({bytes.Length})", 2);
+            Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {socket.Status} '{path}' ({bytes.Length})", 2);
         }
     }
 }
