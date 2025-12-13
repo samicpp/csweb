@@ -504,7 +504,7 @@ public class Handlers(AppConfig appconfig)
         #else
         else if (name.EndsWith(".dll"))
         {
-            await ErrorHandler(socket, path, 501);
+            await ErrorHandler(socket, conf, path, 501);
         }
         #endif
         else if (false && name.EndsWith(".cs"))
