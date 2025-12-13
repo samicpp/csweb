@@ -71,6 +71,14 @@ public class AppConfig
 
         return X509CertificateLoader.LoadPkcs12(cert.Export(X509ContentType.Pfx, ""), "");
     }
+    public static readonly Dictionary<string,string> SwitchMappings = new()
+    {
+        { "-l", "loglevel" },
+        { "--address", "h2c-address" },
+        { "--http-address", "h2c-address" },
+        { "--https-address", "ssl-address" },
+        { "--tls-address", "ssl-address" },
+    }; 
 }
 
 #if AOT_BUILD
@@ -80,10 +88,11 @@ public partial class AppConfigContext : JsonSerializerContext { }
 
 public class Program
 {
-    public static string Version { get; } = "v2.7.15";
+    public static string Version { get; } = "v2.7.16";
 
     static AppConfig TryConfig()
     {
+        string[] cliopt = Environment.GetCommandLineArgs();
         try
         {
             #if AOT_BUILD
@@ -91,21 +100,24 @@ public class Program
             if (cinfo.Exists) return JsonSerializer.Deserialize(File.ReadAllBytes("./appsettings.json"), AppConfigContext.Default.AppConfig);
             else return AppConfig.Default();
             #else
-            return new ConfigurationBuilder().AddJsonFile("appsettings.json", true, true).Build().Get<AppConfig>() ?? AppConfig.Default();
+            return new ConfigurationBuilder().AddJsonFile("appsettings.json", false, false).AddCommandLine(cliopt, AppConfig.SwitchMappings).Build().Get<AppConfig>() ?? AppConfig.Default();
             #endif
         }
-        catch (Exception)
+        catch (Exception e)
         {
-            Debug.WriteLine((int)LogLevel.Warning, $"\e[4;93;40m{Directory.GetCurrentDirectory()}/appsettings.json is invalid\e[0m");
+            Debug.WriteLine((int)LogLevel.Warning, $"\e[4;93;40mappsettings.json was invalid\e[0m \e[38;5;8{e.GetType()}\e[0m");
+            Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}", 3);
             return AppConfig.Default();
         }
     }
-    readonly static AppConfig config = TryConfig();
-
+    
+    static readonly AppConfig config = TryConfig();
     readonly static Handlers hands = new(config);
+
     public static async Task Main()
     {
         var sw = Stopwatch.StartNew();
+        // config = TryConfig(cliopt);
         // var addrs = config["h2c-address"].Split(";");
         // var O9addrs = config["09-address"].Split(";");
         // var h2addrs = config["h2-address"].Split(";");
@@ -115,10 +127,14 @@ public class Program
         var alpn = config.Alpn.Select(a => new SslApplicationProtocol(a.Trim())).ToList();
         if (config.WorkDir != null) Directory.SetCurrentDirectory(config.WorkDir);
 
-
         Debug.logLevel = config.Loglevel == 0 ? null : config.Loglevel;
 
+        #if AOT_BUILD
+        Debug.WriteColorLine((int)LogLevel.Init, $"csweb {Version} AOT", (52, 235, 210));
+        #else
         Debug.WriteColorLine((int)LogLevel.Init, $"csweb {Version}", (52, 235, 210));
+        #endif
+
         Debug.WriteColorLine((int)LogLevel.Verbose, $"cwd = {Directory.GetCurrentDirectory()}", 8);
         Debug.WriteColorLine((int)LogLevel.Verbose, $"serve-dir = {config.ServeDir}", 8);
         Debug.WriteLine((int)LogLevel.Init, " ");
