@@ -20,6 +20,7 @@ using Microsoft.DotNet.Interactive.Events;
 using Microsoft.DotNet.Interactive.Commands;
 using System.Text.Json.Serialization;
 using System.Runtime.CompilerServices;
+using Samicpp.Http.Http2;
 
 public readonly struct RouteConfig()
 {
@@ -598,10 +599,26 @@ public class Handlers(AppConfig appconfig)
         else
         {
             socket.SetHeader("Content-Type", dmt);
-            byte[] bytes = await File.ReadAllBytesAsync(path);
-            await socket.CloseAsync(bytes);
-            cache[fullhost] = (info.LastWriteTime, dmt, bytes, null);
-            Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {socket.Status} '{path}' ({bytes.Length})", 2);
+            if (info.Length < 512 * 1024 * 1024)
+            {
+                byte[] bytes = await File.ReadAllBytesAsync(path);
+                await socket.CloseAsync(bytes);
+                cache[fullhost] = (info.LastWriteTime, dmt, bytes, null);
+            }
+            else
+            {
+                Debug.WriteColorLine((int)LogLevel.Verbose, $", streaming big file", 8);
+                if (socket is Http2Stream) socket.SetHeader("Content-Length", info.Length.ToString());
+                using FileStream file = File.OpenRead(path);
+                byte[] buff = new byte[64 * 1024];
+                int read;
+                while ((read = await file.ReadAsync(buff)) != 0)
+                {
+                    await socket.WriteAsync(buff[..read]);
+                }
+                await socket.CloseAsync();
+            }
+            Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {socket.Status} '{path}' ({info.Length})", 2);
         }
     }
 }

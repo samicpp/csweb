@@ -300,7 +300,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
     }
     async Task TlsUpgrade(Handler handler, NetworkStream socket, SslServerAuthenticationOptions opt, EndPoint end)
     {
-        var sslStream = new SslStream(socket, false);
+        using var sslStream = new SslStream(socket, false);
         try
         {
             string alpn = "";
@@ -313,6 +313,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
             {
                 Debug.WriteColorLine((int)LogLevel.Critical, $"* tls authentication error occured {e.GetType()}", 9);
                 Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}\n", 9);
+                return;
             }
             using TlsSocket tls = new(sslStream);
 
