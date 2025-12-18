@@ -341,7 +341,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                 try
                 {
                     await h2.InitAsync();
-                    await h2.SendSettingsAsync(Http2Settings.Default());
+                    await h2.SendSettingsAsync(new(4096, null, null, 16777215, 16777215, null));
                     await h2.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
 
                     while (h2.goaway == null)
