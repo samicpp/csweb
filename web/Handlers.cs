@@ -14,10 +14,6 @@ using System.Text.Json;
 using System.Net;
 using System.Reflection;
 
-using Microsoft.DotNet.Interactive;
-using Microsoft.DotNet.Interactive.CSharp;
-using Microsoft.DotNet.Interactive.Events;
-using Microsoft.DotNet.Interactive.Commands;
 using System.Text.Json.Serialization;
 using System.Runtime.CompilerServices;
 using Samicpp.Http.Http2;
