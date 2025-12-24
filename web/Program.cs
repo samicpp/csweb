@@ -17,7 +17,6 @@ using System.Security.Cryptography.X509Certificates;
 using System.Linq;
 using System.Net.Security;
 using Samicpp.Http.Debug;
-using Microsoft.DotNet.Interactive.Formatting;
 using System.Security.Cryptography;
 using Samicpp.Http.Http2;
 using System.Text.Json.Serialization;

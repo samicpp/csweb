@@ -595,7 +595,7 @@ public class Handlers(AppConfig appconfig)
         else
         {
             socket.SetHeader("Content-Type", dmt);
-            if (info.Length < 512 * 1024 * 1024)
+            if (info.Length < 1024 * 1024 * 1024)
             {
                 byte[] bytes = await File.ReadAllBytesAsync(path);
                 await socket.CloseAsync(bytes);
@@ -606,7 +606,7 @@ public class Handlers(AppConfig appconfig)
                 Debug.WriteColorLine((int)LogLevel.Verbose, $", streaming big file", 8);
                 if (socket is Http2Stream) socket.SetHeader("Content-Length", info.Length.ToString());
                 using FileStream file = File.OpenRead(path);
-                byte[] buff = new byte[64 * 1024];
+                byte[] buff = new byte[16 * 1024 * 1024];
                 int read;
                 while ((read = await file.ReadAsync(buff)) != 0)
                 {

@@ -80,7 +80,7 @@ public class H2CServer(IPEndPoint address)
                         using var h2c = await socket.H2CAsync();
 
                         await h2c.InitAsync();
-                        await h2c.SendSettingsAsync(Http2Settings.Default());
+                        await h2c.SendSettingsAsync(new(4096, null, null, 16777215, 16777215, null));
                         await h2c.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
 
                         var upstream = new Http2Stream(1, h2c);
@@ -162,7 +162,7 @@ public class H2Server(IPEndPoint address)
                 try
                 {
                     await h2.InitAsync(); // Console.WriteLine("h2 init");
-                    await h2.SendSettingsAsync(Http2Settings.Default()); // Console.WriteLine("h2 settings");
+                    await h2.SendSettingsAsync(new(4096, null, null, 16777215, 16777215, null)); // Console.WriteLine("h2 settings");
                     await h2.SendPingAsync([104, 101, 97, 114, 98, 101, 97, 116]);
 
                     while (h2.goaway == null)
