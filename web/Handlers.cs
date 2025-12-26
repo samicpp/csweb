@@ -444,6 +444,8 @@ public class Handlers(AppConfig appconfig)
     }
 
     readonly Dictionary<string, (DateTime, IHttpPlugin)> plugins = [];
+    static readonly Regex netPluginExt = new(@"\.net(\.dll)?$", RegexOptions.Compiled);
+
     public async Task FileHandler(IDualHttpSocket socket, RouteConfig conf, string path, string normalPath)
     {
         // await socket.CloseAsync("file");
@@ -467,7 +469,7 @@ public class Handlers(AppConfig appconfig)
             Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {socket.Status} blank", 2);
         }
         #if !AOT_BUILD
-        else if (name.EndsWith(".dll"))
+        else if (netPluginExt.IsMatch(name))
         {
             try
             {
@@ -480,7 +482,7 @@ public class Handlers(AppConfig appconfig)
                 {
                     Debug.WriteColorLine((int)LogLevel.Info, "\e[2mloading new plugin " + path, (255, 173, 173)); // dangerous, hence elevated log level
                     
-                    string tname = Path.GetFileNameWithoutExtension(name);
+                    string tname = netPluginExt.Replace(name, "");
                     byte[] lib = await File.ReadAllBytesAsync(path);
                     Assembly assembly = Assembly.Load(lib);
                     Type type = assembly.GetType(tname);
@@ -499,7 +501,7 @@ public class Handlers(AppConfig appconfig)
             }
         }
         #else
-        else if (name.EndsWith(".dll"))
+        else if (netPluginExt.IsMatch(name))
         {
             await ErrorHandler(socket, conf, path, 501);
         }
@@ -595,25 +597,8 @@ public class Handlers(AppConfig appconfig)
         else
         {
             socket.SetHeader("Content-Type", dmt);
-            if (info.Length < 1024 * 1024 * 1024)
-            {
-                byte[] bytes = await File.ReadAllBytesAsync(path);
-                await socket.CloseAsync(bytes);
-                cache[fullhost] = (info.LastWriteTime, dmt, bytes, null);
-            }
-            else
-            {
-                Debug.WriteColorLine((int)LogLevel.Verbose, $", streaming big file", 8);
-                if (socket is Http2Stream) socket.SetHeader("Content-Length", info.Length.ToString());
-                using FileStream file = File.OpenRead(path);
-                byte[] buff = new byte[16 * 1024 * 1024];
-                int read;
-                while ((read = await file.ReadAsync(buff)) != 0)
-                {
-                    await socket.WriteAsync(buff[..read]);
-                }
-                await socket.CloseAsync();
-            }
+            using FileStream file = File.OpenRead(path);
+            await socket.CloseAsync(file);
             Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {socket.Status} '{path}' ({info.Length})", 2);
         }
     }
