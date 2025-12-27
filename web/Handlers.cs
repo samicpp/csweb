@@ -38,10 +38,10 @@ public partial class RoutesContext : JsonSerializerContext { }
 [JsonSerializable(typeof(Dictionary<string, string>))]
 public partial class HeadersContext : JsonSerializerContext { }
 
-public class Handlers(AppConfig appconfig)
+public class Handlers(AppConfig app)
 {
-    string BaseDir { get => appconfig.ServeDir; }
-    readonly AppConfig appconfig = appconfig;
+    string BaseDir { get => app.ServeDir; }
+    readonly AppConfig app = app;
     static readonly Regex remove1 = new(@"(\?.*$)|(\#.*$)|(\:.*$)", RegexOptions.Compiled);
     static readonly Regex remove2 = new(@"\/\.{1,2}(?=\/|$)", RegexOptions.Compiled);
     static readonly Regex remove3 = new(@"/$", RegexOptions.Compiled);
@@ -87,7 +87,7 @@ public class Handlers(AppConfig appconfig)
 
         Debug.WriteLine((int)LogLevel.Debug, "connection established using " + socket.Client.Version);
 
-        if (appconfig.UseCompression && socket.Client.Headers.TryGetValue("accept-encoding", out List<string> encoding))
+        if (app.UseCompression && socket.Client.Headers.TryGetValue("accept-encoding", out List<string> encoding))
         {
             foreach (string s in encoding[0].Split(","))
             {
@@ -506,11 +506,11 @@ public class Handlers(AppConfig appconfig)
             await ErrorHandler(socket, conf, path, 501);
         }
         #endif
-        else if (false && name.EndsWith(".cs"))
+        else if (false && app.AllowPlugins && name.EndsWith(".cs"))
         {
             // await cskernel.SetValueAsync("socket", socket, typeof(IDualHttpSocket));
         }
-        else if (name.EndsWith(".redirect") || name.EndsWith(".link") || name.Contains(".var."))
+        else if (app.AllowSpecial && (name.EndsWith(".redirect") || name.EndsWith(".link") || name.Contains(".var.")))
         {
             Debug.WriteLine((int)LogLevel.Verbose, "special file");
             string utext = await File.ReadAllTextAsync(path);
@@ -597,7 +597,7 @@ public class Handlers(AppConfig appconfig)
         else
         {
             socket.SetHeader("Content-Type", dmt);
-            if (info.Length < appconfig.BigFileThreshold)
+            if (info.Length < app.BigFileThreshold)
             {
                 byte[] bytes = await File.ReadAllBytesAsync(path);
                 await socket.CloseAsync(bytes);
@@ -607,7 +607,7 @@ public class Handlers(AppConfig appconfig)
             {
                 using FileStream file = File.OpenRead(path);
 
-                if (appconfig.StreamBigFiles)
+                if (app.StreamBigFiles)
                 {
                     Debug.WriteColorLine((int)LogLevel.Verbose, $", streaming big file", 8);
                     await socket.CloseAsync(file);
@@ -616,7 +616,7 @@ public class Handlers(AppConfig appconfig)
                 {
                     Debug.WriteColorLine((int)LogLevel.Verbose, $", manually splitting up big file", 8);
                     if (socket is Http2Stream) socket.SetHeader("Content-Length", info.Length.ToString());
-                    byte[] buff = new byte[appconfig.BigFileChunkSize];
+                    byte[] buff = new byte[app.BigFileChunkSize];
                     int read;
                     while ((read = await file.ReadAsync(buff)) != 0)
                     {

@@ -45,6 +45,10 @@ public class AppConfig
     [JsonPropertyName("bigfile-chunk-size")] [ConfigurationKeyName("bigfile-chunk-size")] public int BigFileChunkSize { get; init; } = 16 * 1024 * 1024; // 16mb
     [JsonPropertyName("stream-bigfiles")] [ConfigurationKeyName("stream-bigfiles")] public bool StreamBigFiles { get; init; } = false;
 
+    [JsonPropertyName("allow-plugins")] [ConfigurationKeyName("allow-plugins")] public bool AllowPlugins { get; init; } = true;
+    [JsonPropertyName("allow-special")] [ConfigurationKeyName("allow-special")] public bool AllowSpecial { get; init; } = true;
+    [JsonPropertyName("allow-scripts")] [ConfigurationKeyName("allow-scripts")] public bool AllowScripts { get; init; } = true;
+
     [JsonPropertyName("loglevel")] [ConfigurationKeyName("loglevel")] public int? Loglevel { get; init; } = (int)(LogLevel.Info | LogLevel.Init | LogLevel.Warning | LogLevel.SoftError | LogLevel.Error | LogLevel.Critical | LogLevel.Fatal | LogLevel.Assert);
 
 
@@ -92,7 +96,7 @@ public partial class AppConfigContext : JsonSerializerContext { }
 
 public class Program
 {
-    public static string Version { get; } = "v2.7.18";
+    public static string Version { get; } = "v2.7.19";
 
     static AppConfig TryConfig()
     {
