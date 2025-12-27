@@ -87,7 +87,7 @@ public class Handlers(AppConfig appconfig)
 
         Debug.WriteLine((int)LogLevel.Debug, "connection established using " + socket.Client.Version);
 
-        if (socket.Client.Headers.TryGetValue("accept-encoding", out List<string> encoding))
+        if (appconfig.UseCompression && socket.Client.Headers.TryGetValue("accept-encoding", out List<string> encoding))
         {
             foreach (string s in encoding[0].Split(","))
             {
@@ -597,8 +597,34 @@ public class Handlers(AppConfig appconfig)
         else
         {
             socket.SetHeader("Content-Type", dmt);
-            using FileStream file = File.OpenRead(path);
-            await socket.CloseAsync(file);
+            if (info.Length < appconfig.BigFileThreshold)
+            {
+                byte[] bytes = await File.ReadAllBytesAsync(path);
+                await socket.CloseAsync(bytes);
+                cache[fullhost] = (info.LastWriteTime, dmt, bytes, null);
+            }
+            else
+            {
+                using FileStream file = File.OpenRead(path);
+
+                if (appconfig.StreamBigFiles)
+                {
+                    Debug.WriteColorLine((int)LogLevel.Verbose, $", streaming big file", 8);
+                    await socket.CloseAsync(file);
+                }
+                else
+                {
+                    Debug.WriteColorLine((int)LogLevel.Verbose, $", manually splitting up big file", 8);
+                    if (socket is Http2Stream) socket.SetHeader("Content-Length", info.Length.ToString());
+                    byte[] buff = new byte[appconfig.BigFileChunkSize];
+                    int read;
+                    while ((read = await file.ReadAsync(buff)) != 0)
+                    {
+                        await socket.WriteAsync(buff.AsMemory(0, read));
+                    }
+                    await socket.CloseAsync();
+                }
+            }
             Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {socket.Status} '{path}' ({info.Length})", 2);
         }
     }

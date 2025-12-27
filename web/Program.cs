@@ -25,8 +25,8 @@ using System.Text.Json;
 
 public class AppConfig
 {
-    [JsonPropertyName("h2c-address")][ConfigurationKeyName("h2c-address")] public string[] H2cAddress { get; init; } = [];
     [JsonPropertyName("09-address")] [ConfigurationKeyName("09-address")] public string[] O9Address { get; init; } = [];
+    [JsonPropertyName("h2c-address")][ConfigurationKeyName("h2c-address")] public string[] H2cAddress { get; init; } = [];
     [JsonPropertyName("h2-address")] [ConfigurationKeyName("h2-address")] public string[] H2Address { get; init; } = [];
     [JsonPropertyName("ssl-address")] [ConfigurationKeyName("ssl-address")] public string[] SslAddress { get; init; } = [];
 
@@ -36,9 +36,14 @@ public class AppConfig
     [JsonPropertyName("fallback-alpn")] [ConfigurationKeyName("fallback-alpn")] public string FallbackAlpn { get; init; } = null;
 
     [JsonPropertyName("cwd")] [ConfigurationKeyName("cwd")] public string WorkDir { get; init; } = null;
-    [JsonPropertyName("serve-dir")] [ConfigurationKeyName("serve-dir")] public string ServeDir { get; init; } = "./";
     [JsonPropertyName("backlog")] [ConfigurationKeyName("backlog")] public int Backlog { get; init; } = 10;
     [JsonPropertyName("dualmode")] [ConfigurationKeyName("dualmode")] public bool DualMode { get; init; } = false;
+
+    [JsonPropertyName("serve-dir")] [ConfigurationKeyName("serve-dir")] public string ServeDir { get; init; } = "./";
+    [JsonPropertyName("use-compression")] [ConfigurationKeyName("use-compression")] public bool UseCompression { get; init; } = true;
+    [JsonPropertyName("bigfile-threshold")] [ConfigurationKeyName("bigfile-threshold")] public int BigFileThreshold { get; init; } = 16 * 1024 * 1024; // 16mb
+    [JsonPropertyName("bigfile-chunk-size")] [ConfigurationKeyName("bigfile-chunk-size")] public int BigFileChunkSize { get; init; } = 16 * 1024 * 1024; // 16mb
+    [JsonPropertyName("stream-bigfiles")] [ConfigurationKeyName("stream-bigfiles")] public bool StreamBigFiles { get; init; } = false;
 
     [JsonPropertyName("loglevel")] [ConfigurationKeyName("loglevel")] public int? Loglevel { get; init; } = (int)(LogLevel.Info | LogLevel.Init | LogLevel.Warning | LogLevel.SoftError | LogLevel.Error | LogLevel.Critical | LogLevel.Fatal | LogLevel.Assert);
 
@@ -80,27 +85,27 @@ public class AppConfig
     }; 
 }
 
-#if AOT_BUILD
+// #if AOT_BUILD
 [JsonSerializable(typeof(AppConfig))]
 public partial class AppConfigContext : JsonSerializerContext { }
-#endif
+// #endif
 
 public class Program
 {
-    public static string Version { get; } = "v2.7.17";
+    public static string Version { get; } = "v2.7.18";
 
     static AppConfig TryConfig()
     {
         string[] cliopt = Environment.GetCommandLineArgs();
         try
         {
-            #if AOT_BUILD
-            FileInfo cinfo = new($"./appsettings.json");
-            if (cinfo.Exists) return JsonSerializer.Deserialize(File.ReadAllBytes("./appsettings.json"), AppConfigContext.Default.AppConfig);
-            else return AppConfig.Default();
-            #else
+            // #if AOT_BUILD
+            // FileInfo cinfo = new($"./appsettings.json");
+            // if (cinfo.Exists) return JsonSerializer.Deserialize(File.ReadAllBytes("./appsettings.json"), AppConfigContext.Default.AppConfig);
+            // else return AppConfig.Default();
+            // #else
             return new ConfigurationBuilder().AddJsonFile("appsettings.json", false, false).AddCommandLine(cliopt, AppConfig.SwitchMappings).Build().Get<AppConfig>() ?? AppConfig.Default();
-            #endif
+            // #endif
         }
         catch (Exception e)
         {
