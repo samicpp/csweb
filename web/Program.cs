@@ -96,7 +96,7 @@ public partial class AppConfigContext : JsonSerializerContext { }
 
 public class Program
 {
-    public static string Version { get; } = "v2.7.19";
+    public static string Version { get; } = "v2.7.20";
 
     static AppConfig TryConfig()
     {
@@ -152,16 +152,14 @@ public class Program
         foreach (var addr in config.SslAddress)
         {
             X509Certificate2 cert;
-            if (config.P12Cert == null || config.P12pass == null) cert = AppConfig.SelfSigned();
-            else cert = X509CertificateLoader.LoadPkcs12FromFile(config.P12Cert, config.P12pass);
+            if (config.P12Cert?.Length > 0) cert = X509CertificateLoader.LoadPkcs12FromFile(config.P12Cert, config.P12pass ?? "");
+            else cert = AppConfig.SelfSigned();
 
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            TlsServer tls = new(address, cert) { backlog = config.Backlog, dualmode = config.DualMode };
+            TlsServer tls = new(address, cert) { backlog = config.Backlog, dualmode = config.DualMode, alpn = alpn, fallback = config.FallbackAlpn };
             tasks.Add(tls.Serve(Wrapper));
 
-            tls.alpn = alpn;
-            tls.fallback = config.FallbackAlpn;
 
             Debug.WriteColorLine((int)LogLevel.Init, $"\e[2m- HTTPS serving on \e[22m\e[1mhttps://{address}", (76, 235, 52));
         }

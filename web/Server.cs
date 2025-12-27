@@ -45,12 +45,12 @@ public class H2CServer(IPEndPoint address)
         {
             listener.Bind(address);
             listener.Listen(backlog);
-            return;
         }
         catch (Exception e)
         {
             Debug.WriteColorLine((int)LogLevel.Fatal, $"! HTTP/1.1 server failed to start {e.GetType()}", 9);
             Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}\n", 9);
+            return;
         }
 
         while (true)
@@ -222,12 +222,12 @@ public class O9Server(IPEndPoint address)
         {
             listener.Bind(address);
             listener.Listen(backlog);
-            return;
         }
         catch (Exception e)
         {
             Debug.WriteColorLine((int)LogLevel.Fatal, $"! 09 server failed to start {e.GetType()}", 9);
             Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}\n", 9);
+            return;
         }
 
         while (true)
