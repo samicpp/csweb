@@ -110,14 +110,32 @@ these files get read as pieces of text and then replaces certain strings with di
 | `%DOMAIN%` | gets replaced by an estimated guess of the domain (`www.example.com` -> `example.com`) |
 
 
-## TODO:
+## Planned
+
+### Features
 - [x] allow serving files
-- [X] support tls
-- [X] support json config files
 - [x] allow simple dynamic content files
-- [x] add file caching
 - [x] add middleware support
 - [x] add protocol detection (auto choose HTTP/1.1, HTTP/2, Tls)
-- [ ] make cache use compressed data & allow pre compressed files
 - [ ] add script support
-- [ ] ~~add regex file matching config files~~
+
+### Enhancements
+- [X] support tls
+- [X] support json config files
+- [x] add file caching
+- [x] add regex file matching config files
+- [ ] make cache use compressed data & allow pre compressed files
+
+### Planning
+| Version | Change | Date | Completed |
+|--|--|--|--|
+| v1.x.x | Fundamental (HTTP/1.1) | 23-10-2025 | [X] |
+| v1.1.x | Support config | 23-10-2025 | [X] |
+| v2.x.x | HTTP/2 | 24-10-2025 | [X] |
+| v2.3.x | Support TLS | 24-10-2025 | [X] |
+| v2.8.x | Protocol detection | 02-01-2026 | [X] |
+| v2.9.x | Script support | placeholder | [ ] |
+| v3.x.x | HTTP/3 | placeholder | [ ] |
+| v4.x.x | Switch to self made web framework | placeholder | [ ] |
+| v5.x.x | Build parts in C++ | placeholder | [ ] |
+
