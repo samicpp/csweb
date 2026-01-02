@@ -129,13 +129,13 @@ these files get read as pieces of text and then replaces certain strings with di
 ### Planning
 | Version | Change | Date | Completed |
 |--|--|--|--|
-| v1.x.x | Fundamental (HTTP/1.1) | 23-10-2025 | [X] |
-| v1.1.x | Support config | 23-10-2025 | [X] |
-| v2.x.x | HTTP/2 | 24-10-2025 | [X] |
-| v2.3.x | Support TLS | 24-10-2025 | [X] |
-| v2.8.x | Protocol detection | 02-01-2026 | [X] |
-| v2.9.x | Script support | placeholder | [ ] |
-| v3.x.x | HTTP/3 | placeholder | [ ] |
-| v4.x.x | Switch to self made web framework | placeholder | [ ] |
-| v5.x.x | Build parts in C++ | placeholder | [ ] |
+| v1.x.x | Fundamental (HTTP/1.1) | 23-10-2025 | ✓ |
+| v1.1.x | Support config | 23-10-2025 | ✓ |
+| v2.x.x | HTTP/2 | 24-10-2025 | ✓ |
+| v2.3.x | Support TLS | 24-10-2025 | ✓ |
+| v2.8.x | Protocol detection | 02-01-2026 | ✓ |
+| v2.9.x | Script support | placeholder | - |
+| v3.x.x | HTTP/3 | placeholder | - |
+| v4.x.x | Switch to self made web framework | placeholder | - |
+| v5.x.x | Build parts in C++ | placeholder | - |
 
