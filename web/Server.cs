@@ -439,7 +439,7 @@ public class PolyServer(IPEndPoint address, X509Certificate2 cert)
             Debug.WriteLine((int)LogLevel.Debug, "poly was tls");
             await TlsServer.TlsUpgrade(handler, stream, opt, end, fallback);
         }
-        else if (peek[0] == Http2Session.MAGIC[0])
+        else if (peek[0] == Http2Session.MAGIC[0] && peek[1] == Http2Session.MAGIC[1] && peek[2] == Http2Session.MAGIC[2])
         {
             var socket = new TcpSocket(stream);
             using Http2Session h2 = new(socket, Http2Settings.Default(), end);
