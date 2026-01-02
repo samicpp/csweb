@@ -123,7 +123,7 @@ public class Handlers(AppConfig app)
         }
 
         string mfullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath("/" + socket.Client.Path)}";
-        string fullhost = $"[{socket.Client.Version}]{mfullhost}";
+        string fullhost = $"[{socket.Client.VersionString}]{mfullhost}";
 
         // bool fresh = false;
         string extra = "";
@@ -190,7 +190,7 @@ public class Handlers(AppConfig app)
                     (type == "regex" && new Regex(k).IsMatch(mfullhost)) ||
                     (type == "path-start" && socket.Client.Path.StartsWith(k, StringComparison.CurrentCultureIgnoreCase)) ||
                     (type == "scheme" && k.Equals(socket.IsHttps ? "https" : "http", StringComparison.CurrentCultureIgnoreCase))  ||
-                    (type == "protocol" && k.Equals(socket.Client.Version, StringComparison.CurrentCultureIgnoreCase)) ||
+                    (type == "protocol" && k.Equals(socket.Client.VersionString, StringComparison.CurrentCultureIgnoreCase)) ||
                     (type == "domain" && k.Equals(dm, StringComparison.CurrentCultureIgnoreCase))
                 )
                 {
@@ -458,7 +458,7 @@ public class Handlers(AppConfig app)
         var ext = dot.Last();
         var dmt = MimeTypes.types.GetValueOrDefault(ext) ?? "application/octet-stream";
         // string fullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath(socket.Client.Path)}";
-        string fullhost = $"[{socket.Client.Version}]{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath("/" + socket.Client.Path)}";
+        string fullhost = $"[{socket.Client.VersionString}]{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath("/" + socket.Client.Path)}";
 
 
         if (name.EndsWith(".blank"))
@@ -536,7 +536,7 @@ public class Handlers(AppConfig app)
                 { "%BASE_DIR%", BaseDir },
                 { "%USER_AGENT%", socket.Client.Headers.GetValueOrDefault("user-agent")?[0] ?? "null" },
                 { "%DOMAIN%", dm },
-                { "%VERSION%", socket.Client.Version },
+                { "%VERSION%", socket.Client.VersionString },
             };
 
             foreach (var (k, v) in vars)

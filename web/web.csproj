@@ -6,6 +6,7 @@
     <AssemblyName>csweb</AssemblyName>
     <LangVersion>preview</LangVersion>
     <RootNamespace>Samicpp.Web</RootNamespace>
+    <!-- <Version>2.8.0</Version> -->
   </PropertyGroup>
 
   <PropertyGroup>

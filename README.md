@@ -12,18 +12,28 @@ and [appsettings.comments.json](./web/appsettings.comments.json) for comments ex
 appsettings.default.json
 ```json
 {
-    "h2c-address": [ "0.0.0.0:8080" ],
     "09-address": [ ],
+    "h2c-address": [ ],
     "h2-address": [ ],
-    "ssl-address": [ "0.0.0.0:4433" ],
+    "ssl-address": [ ],
+    "poly-address": [ ],
     
-    "serve-dir": "./public",
+    "p12-cert": null,
+    "p12-pass": null,
+    "alpn": [ "h2", "http/1.1" ],
+    "fallback-alpn": null,
+    
+    "cwd": null,
     "backlog": 10,
-    
-    "p12-cert": "",
-    "p12-pass": "",
-    "alpn": [ "h2", "http/1.1", "http/0.9" ],
-    "fallback-alpn": 7112
+    "dualmode": false,
+
+    "serve-dir": "./",
+    "use-compression": true,
+    "bigfile-threshold": 16777216,
+    "bigfile-chunk-size": 16777216,
+    "stream-bigfiles": false,
+
+    "loglevel": null
 }
 ```
 
@@ -107,7 +117,7 @@ these files get read as pieces of text and then replaces certain strings with di
 - [x] allow simple dynamic content files
 - [x] add file caching
 - [x] add middleware support
+- [x] add protocol detection (auto choose HTTP/1.1, HTTP/2, Tls)
 - [ ] make cache use compressed data & allow pre compressed files
 - [ ] add script support
 - [ ] ~~add regex file matching config files~~
-- [ ] ~~add protocol detection~~ planned for v4.x.x

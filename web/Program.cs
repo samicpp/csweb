@@ -29,6 +29,7 @@ public class AppConfig
     [JsonPropertyName("h2c-address")][ConfigurationKeyName("h2c-address")] public string[] H2cAddress { get; init; } = [];
     [JsonPropertyName("h2-address")] [ConfigurationKeyName("h2-address")] public string[] H2Address { get; init; } = [];
     [JsonPropertyName("ssl-address")] [ConfigurationKeyName("ssl-address")] public string[] SslAddress { get; init; } = [];
+    [JsonPropertyName("poly-address")] [ConfigurationKeyName("poly-address")] public string[] PolyAddress { get; init; } = [];
 
     [JsonPropertyName("p12-cert")] [ConfigurationKeyName("p12-cert")] public string P12Cert { get; init; } = null;
     [JsonPropertyName("p12-pass")] [ConfigurationKeyName("p12-pass")] public string P12pass { get; init; } = null;
@@ -52,7 +53,7 @@ public class AppConfig
     [JsonPropertyName("loglevel")] [ConfigurationKeyName("loglevel")] public int? Loglevel { get; init; } = (int)(LogLevel.Info | LogLevel.Init | LogLevel.Warning | LogLevel.SoftError | LogLevel.Error | LogLevel.Critical | LogLevel.Fatal | LogLevel.Assert);
 
 
-    public static AppConfig Default() => new() { H2cAddress = [ "0.0.0.0:8080" ], SslAddress = [ "0.0.0.0:4433" ], ServeDir = "./public" };
+    public static AppConfig Default() => new() { H2cAddress = [ "0.0.0.0:8080" ], SslAddress = [ "0.0.0.0:4433" ], ServeDir = "./" };
     public static X509Certificate2 SelfSigned()
     {
         // using RSA rsa = RSA.Create(2048);
@@ -82,7 +83,7 @@ public class AppConfig
     public static readonly Dictionary<string,string> SwitchMappings = new()
     {
         { "-l", "loglevel" },
-        { "--address", "h2c-address" },
+        { "--address", "poly-address" },
         { "--http-address", "h2c-address" },
         { "--https-address", "ssl-address" },
         { "--tls-address", "ssl-address" },
@@ -96,7 +97,7 @@ public partial class AppConfigContext : JsonSerializerContext { }
 
 public class Program
 {
-    public static string Version { get; } = "v2.7.20";
+    public static string Version { get; } = "v2.8.0";
 
     static AppConfig TryConfig()
     {
@@ -149,6 +150,20 @@ public class Program
 
         List<Task> tasks = [];
 
+        foreach (var addr in config.PolyAddress)
+        {
+            X509Certificate2 cert;
+            if (config.P12Cert?.Length > 0) cert = X509CertificateLoader.LoadPkcs12FromFile(config.P12Cert, config.P12pass ?? "");
+            else cert = AppConfig.SelfSigned();
+
+            if (addr.Length <= 0) continue;
+            IPEndPoint address = IPEndPoint.Parse(addr.Trim());
+            PolyServer tls = new(address, cert) { backlog = config.Backlog, dualmode = config.DualMode, alpn = alpn, fallback = config.FallbackAlpn };
+            tasks.Add(tls.Serve(Wrapper));
+
+
+            Debug.WriteColorLine((int)LogLevel.Init, $"\e[2m- Poly serving on \e[22m\e[1mhttps://{address}", (52, 165, 235));
+        }
         foreach (var addr in config.SslAddress)
         {
             X509Certificate2 cert;
