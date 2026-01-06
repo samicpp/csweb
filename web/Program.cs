@@ -46,6 +46,7 @@ public class AppConfig
     [JsonPropertyName("bigfile-threshold")] [ConfigurationKeyName("bigfile-threshold")] public int BigFileThreshold { get; init; } = 16 * 1024 * 1024; // 16mb
     [JsonPropertyName("bigfile-chunk-size")] [ConfigurationKeyName("bigfile-chunk-size")] public int BigFileChunkSize { get; init; } = 16 * 1024 * 1024; // 16mb
     // [JsonPropertyName("stream-bigfiles")] [ConfigurationKeyName("stream-bigfiles")] public bool StreamBigFiles { get; init; } = false;
+    [JsonPropertyName("allow-ranged")] [ConfigurationKeyName("allow-ranged")] public bool AllowRanged { get; init; } = true;
 
     [JsonPropertyName("allow-plugins")] [ConfigurationKeyName("allow-plugins")] public bool AllowPlugins { get; init; } = true;
     [JsonPropertyName("allow-special")] [ConfigurationKeyName("allow-special")] public bool AllowSpecial { get; init; } = true;
@@ -98,7 +99,7 @@ public partial class AppConfigContext : JsonSerializerContext { }
 
 public class Program
 {
-    public static Version Version { get; } = new(2, 8, 2, 0);
+    public static Version Version { get; } = new(2, 8, 2, 1);
 
     static AppConfig TryConfig()
     {

@@ -607,7 +607,7 @@ public class Handlers(AppConfig app)
             List<(long,long)> rsend = [];
             bool invalid = false;
 
-            if (socket.Client.Headers.TryGetValue("range", out List<string> rangehs))
+            if (app.AllowRanged && socket.Client.Headers.TryGetValue("range", out List<string> rangehs))
             {
                 foreach(string ranges in rangehs) foreach(string range in ranges.Split(','))
                 {

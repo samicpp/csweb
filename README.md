@@ -119,9 +119,10 @@ these files get read as pieces of text and then replaces certain strings with di
 - [x] add protocol detection (auto choose HTTP/1.1, HTTP/2, Tls)
 - [x] support partial content / byte ranges
 - [ ] add script support
-- [ ] support simple builtin middleware to avoid duplication
+- [ ] support simple builtin request handlers to avoid duplication
 - [ ] allow specifying http authentication in routes config
 - [ ] overhaul logging & allowing logserver and reports
+- [ ] overhaul routes config making it more powerfull
 
 ### Enhancements
 - [X] support tls
