@@ -121,6 +121,7 @@ these files get read as pieces of text and then replaces certain strings with di
 - [ ] support partial content / byte ranges
 - [ ] support simple builtin middleware to avoid duplication
 - [ ] allow speicifying http authentication in routes config
+- [ ] overhaul logging & allowing logserver and reports
 
 ### Enhancements
 - [X] support tls
@@ -128,7 +129,7 @@ these files get read as pieces of text and then replaces certain strings with di
 - [x] add file caching
 - [x] add regex file matching config files
 - [ ] make cache use compressed data & allow pre compressed files
-- [ ] update/modernize file handling logic
+- [ ] update/modernize request handling logic
 
 ### Planning
 | Version | Change | Date | Status |
