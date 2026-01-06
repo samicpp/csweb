@@ -260,7 +260,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
         new SslApplicationProtocol("http/0.9"),
     ];
 
-    public string fallback = null;
+    public bool fallback = true;
 
     public async Task Serve(Handler handler)
     {
@@ -298,7 +298,7 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
             var _ = Task.Run(async () => await TlsUpgrade(handler, stream, opt, shandler.RemoteEndPoint, fallback));
         }
     }
-    internal static async Task TlsUpgrade(Handler handler, NetworkStream socket, SslServerAuthenticationOptions opt, EndPoint end, string fallback)
+    internal static async Task TlsUpgrade(Handler handler, NetworkStream socket, SslServerAuthenticationOptions opt, EndPoint end, bool fallback)
     {
         using var sslStream = new SslStream(socket, false);
         try
@@ -318,15 +318,20 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
             using TlsSocket tls = new(sslStream);
 
             Debug.WriteLine((int)LogLevel.Debug, $"alpn = \"{alpn}\"");
-            if (alpn == "")
-            {
-                Debug.WriteColorLine((int)LogLevel.Warning, ", alpn not negotiated" + (fallback != null ? $". falling back to {fallback}" : ""), 3);
-                if (fallback != null) alpn = fallback;
-            } 
+            // if (alpn == "")
+            // {
+            //     Debug.WriteColorLine((int)LogLevel.Warning, ", alpn not negotiated" + (fallback ? $". falling back" : ""), 3);
+            // } 
 
             if (alpn == "http/0.9")
             {
                 using Http09Socket sock = new(tls, end);
+                await handler(sock);
+            }
+            else if (alpn == "http/1.0")
+            {
+                using Http1Socket sock = new(tls, end) { Allow09 = false, Allow11 = true, AllowUnknown = false };
+                sock.SetHeader("Connection", "close");
                 await handler(sock);
             }
             else if (alpn == "http/1.1")
@@ -340,8 +345,23 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
                 using Http2Session h2 = new(tls, Http2Settings.Default(), end);
                 await Helper.Http2Loop(h2, handler);
             }
+            else if(fallback)
+            {
+                Debug.WriteColorLine((int)LogLevel.Warning, ", alpn not negotiated. falling back to plaintext http", 3);
+
+                using Http1Socket sock = new(tls, end)
+                {
+                    Allow09 = true,
+                    Allow10 = true,
+                    Allow11 = true,
+                    AllowUnknown = true,
+                };
+                sock.SetHeader("Connection", "close");
+                await handler(sock);
+            }
             else
             {
+                Debug.WriteColorLine((int)LogLevel.Warning, ", alpn not negotiated", 3);
                 Debug.WriteColorLine((int)LogLevel.Warning, $"couldnt use alpn \"{alpn}\"", 3);
 
                 // using Http1Socket sock = new(tls, end);
@@ -374,7 +394,7 @@ public class PolyServer(IPEndPoint address, X509Certificate2 cert)
         new SslApplicationProtocol("http/0.9"),
     ];
 
-    public string fallback = null;
+    public bool fallback = true;
 
     public bool AllowH09 = true;
     public bool AllowH10 = true;
@@ -415,7 +435,7 @@ public class PolyServer(IPEndPoint address, X509Certificate2 cert)
             var socket = await listener.AcceptAsync();
             Debug.WriteColorLine((int)LogLevel.Trace, $"{socket.RemoteEndPoint}", 8);
             
-            byte[] snap = new byte[8];
+            byte[] snap = new byte[24];
             int r = await socket.ReceiveAsync(snap, SocketFlags.Peek);
             byte[] peek = snap[..r];
 
@@ -425,7 +445,7 @@ public class PolyServer(IPEndPoint address, X509Certificate2 cert)
         }
     }
 
-    public async Task Detect(byte[] peek, Handler handler, NetworkStream stream, SslServerAuthenticationOptions opt, EndPoint end, string fallback)
+    public async Task Detect(byte[] peek, Handler handler, NetworkStream stream, SslServerAuthenticationOptions opt, EndPoint end, bool fallback)
     {
         // string dump = $"peek ({peek.Length})[ ";
         // foreach (byte b in peek) dump += $"{b}, ";
@@ -439,7 +459,7 @@ public class PolyServer(IPEndPoint address, X509Certificate2 cert)
             Debug.WriteLine((int)LogLevel.Debug, "poly was tls");
             await TlsServer.TlsUpgrade(handler, stream, opt, end, fallback);
         }
-        else if (peek[0] == Http2Session.MAGIC[0] && peek[1] == Http2Session.MAGIC[1] && peek[2] == Http2Session.MAGIC[2])
+        else if (peek.SequenceEqual(Http2Session.MAGIC))
         {
             var socket = new TcpSocket(stream);
             using Http2Session h2 = new(socket, Http2Settings.Default(), end);
@@ -447,7 +467,7 @@ public class PolyServer(IPEndPoint address, X509Certificate2 cert)
         }
         else if (AllowH09 || AllowH10 || AllowH11)
         {
-            using Http1Socket socket = new(new TcpSocket(stream), end) { Allow09 = AllowH09, Allow10 = AllowH10, Allow11 = AllowH11 };
+            using Http1Socket socket = new(new TcpSocket(stream), end) { Allow09 = AllowH09, Allow10 = AllowH10, Allow11 = AllowH11, };
 
             var client = socket.Client;
 
@@ -487,6 +507,10 @@ public class PolyServer(IPEndPoint address, X509Certificate2 cert)
                 Debug.WriteColorLine((int)LogLevel.Critical, $"* server error occured {e.GetType()}", 9);
                 Debug.WriteColorLine((int)LogLevel.Verbose, $"{e}\n", 9);
             }
+        }
+        else
+        {
+            Debug.WriteColorLine((int)LogLevel.Critical, $"* could not choose protocol", 9);
         }
     }
 }

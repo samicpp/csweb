@@ -34,7 +34,8 @@ public class AppConfig
     [JsonPropertyName("p12-cert")] [ConfigurationKeyName("p12-cert")] public string P12Cert { get; init; } = null;
     [JsonPropertyName("p12-pass")] [ConfigurationKeyName("p12-pass")] public string P12pass { get; init; } = null;
     [JsonPropertyName("alpn")] [ConfigurationKeyName("alpn")] public string[] Alpn { get; init; } = [ "h2", "http/1.1" ];
-    [JsonPropertyName("fallback-alpn")] [ConfigurationKeyName("fallback-alpn")] public string FallbackAlpn { get; init; } = null;
+    // [JsonPropertyName("fallback-alpn")] [ConfigurationKeyName("fallback-alpn")] public string FallbackAlpn { get; init; } = null;
+    [JsonPropertyName("fallback")] [ConfigurationKeyName("fallback")] public bool Fallback { get; init; } = true;
 
     [JsonPropertyName("cwd")] [ConfigurationKeyName("cwd")] public string WorkDir { get; init; } = null;
     [JsonPropertyName("backlog")] [ConfigurationKeyName("backlog")] public int Backlog { get; init; } = 10;
@@ -97,7 +98,7 @@ public partial class AppConfigContext : JsonSerializerContext { }
 
 public class Program
 {
-    public static Version Version { get; } = new(2, 8, 0, 2);
+    public static Version Version { get; } = new(2, 8, 1, 0);
 
     static AppConfig TryConfig()
     {
@@ -158,7 +159,7 @@ public class Program
 
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            PolyServer tls = new(address, cert) { backlog = config.Backlog, dualmode = config.DualMode, alpn = alpn, fallback = config.FallbackAlpn };
+            PolyServer tls = new(address, cert) { backlog = config.Backlog, dualmode = config.DualMode, alpn = alpn, fallback = config.Fallback };
             tasks.Add(tls.Serve(Wrapper));
 
 
@@ -172,7 +173,7 @@ public class Program
 
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            TlsServer tls = new(address, cert) { backlog = config.Backlog, dualmode = config.DualMode, alpn = alpn, fallback = config.FallbackAlpn };
+            TlsServer tls = new(address, cert) { backlog = config.Backlog, dualmode = config.DualMode, alpn = alpn, fallback = config.Fallback };
             tasks.Add(tls.Serve(Wrapper));
 
 
