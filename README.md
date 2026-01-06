@@ -117,10 +117,10 @@ these files get read as pieces of text and then replaces certain strings with di
 - [x] allow simple dynamic content files
 - [x] add middleware support
 - [x] add protocol detection (auto choose HTTP/1.1, HTTP/2, Tls)
+- [x] support partial content / byte ranges
 - [ ] add script support
-- [ ] support partial content / byte ranges
 - [ ] support simple builtin middleware to avoid duplication
-- [ ] allow speicifying http authentication in routes config
+- [ ] allow specifying http authentication in routes config
 - [ ] overhaul logging & allowing logserver and reports
 
 ### Enhancements
@@ -148,4 +148,4 @@ these files get read as pieces of text and then replaces certain strings with di
 - `Y.x.x.x`: fundamental/major change
 - `x.Y.x.x`: added features / big changes
 - `x.x.Y.x`: minor features / big bugfix
-- `x.x.x.Y`: very small changes / smaller bugfix
+- `x.x.x.Y`: very small changes / bugfix

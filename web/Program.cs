@@ -33,7 +33,7 @@ public class AppConfig
 
     [JsonPropertyName("p12-cert")] [ConfigurationKeyName("p12-cert")] public string P12Cert { get; init; } = null;
     [JsonPropertyName("p12-pass")] [ConfigurationKeyName("p12-pass")] public string P12pass { get; init; } = null;
-    [JsonPropertyName("alpn")] [ConfigurationKeyName("alpn")] public string[] Alpn { get; init; } = [ "h2", "http/1.1" ];
+    [JsonPropertyName("alpn")] [ConfigurationKeyName("alpn")] public string[] Alpn { get; init; } = null;
     // [JsonPropertyName("fallback-alpn")] [ConfigurationKeyName("fallback-alpn")] public string FallbackAlpn { get; init; } = null;
     [JsonPropertyName("fallback")] [ConfigurationKeyName("fallback")] public bool Fallback { get; init; } = true;
 
@@ -45,7 +45,7 @@ public class AppConfig
     [JsonPropertyName("use-compression")] [ConfigurationKeyName("use-compression")] public bool UseCompression { get; init; } = true;
     [JsonPropertyName("bigfile-threshold")] [ConfigurationKeyName("bigfile-threshold")] public int BigFileThreshold { get; init; } = 16 * 1024 * 1024; // 16mb
     [JsonPropertyName("bigfile-chunk-size")] [ConfigurationKeyName("bigfile-chunk-size")] public int BigFileChunkSize { get; init; } = 16 * 1024 * 1024; // 16mb
-    [JsonPropertyName("stream-bigfiles")] [ConfigurationKeyName("stream-bigfiles")] public bool StreamBigFiles { get; init; } = false;
+    // [JsonPropertyName("stream-bigfiles")] [ConfigurationKeyName("stream-bigfiles")] public bool StreamBigFiles { get; init; } = false;
 
     [JsonPropertyName("allow-plugins")] [ConfigurationKeyName("allow-plugins")] public bool AllowPlugins { get; init; } = true;
     [JsonPropertyName("allow-special")] [ConfigurationKeyName("allow-special")] public bool AllowSpecial { get; init; } = true;
@@ -54,7 +54,7 @@ public class AppConfig
     [JsonPropertyName("loglevel")] [ConfigurationKeyName("loglevel")] public int? Loglevel { get; init; } = (int)(LogLevel.Info | LogLevel.Init | LogLevel.Warning | LogLevel.SoftError | LogLevel.Error | LogLevel.Critical | LogLevel.Fatal | LogLevel.Assert);
 
 
-    public static AppConfig Default() => new() { H2cAddress = [ "0.0.0.0:8080" ], SslAddress = [ "0.0.0.0:4433" ], ServeDir = "./" };
+    public static AppConfig Default() => new() { H2cAddress = [ "0.0.0.0:8080" ], SslAddress = [ "0.0.0.0:4433" ], Alpn = [ "h2", "http/1.1" ], ServeDir = "./" };
     public static X509Certificate2 SelfSigned()
     {
         // using RSA rsa = RSA.Create(2048);
@@ -134,7 +134,7 @@ public class Program
         // var ssladdrs = config["ssl-address"].Split(";");
         // var p12cert = config["p12-cert"];
         // var p12pass = config["p12-pass"];
-        var alpn = config.Alpn.Select(a => new SslApplicationProtocol(a.Trim())).ToList();
+        var alpns = config.Alpn?.Select(a => new SslApplicationProtocol(a.Trim())).ToList() ?? [SslApplicationProtocol.Http2, SslApplicationProtocol.Http11];
         if (config.WorkDir != null) Directory.SetCurrentDirectory(config.WorkDir);
 
         Debug.logLevel = config.Loglevel == 0 ? null : config.Loglevel;
@@ -145,6 +145,8 @@ public class Program
         Debug.WriteColorLine((int)LogLevel.Init, $"csweb v{Version}", (52, 235, 210));
         #endif
 
+        // string alpndump = "[ "; foreach (var a in alpns) alpndump += $"{a}, "; alpndump += "]";
+        // Debug.WriteColorLine((int)LogLevel.Verbose, $"alpns = {alpndump}", 8);
         Debug.WriteColorLine((int)LogLevel.Verbose, $"cwd = {Directory.GetCurrentDirectory()}", 8);
         Debug.WriteColorLine((int)LogLevel.Verbose, $"serve-dir = {config.ServeDir}", 8);
         Debug.WriteLine((int)LogLevel.Init, " ");
@@ -159,7 +161,7 @@ public class Program
 
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            PolyServer tls = new(address, cert) { backlog = config.Backlog, dualmode = config.DualMode, alpn = alpn, fallback = config.Fallback };
+            PolyServer tls = new(address, cert) { backlog = config.Backlog, dualmode = config.DualMode, alpn = alpns, fallback = config.Fallback };
             tasks.Add(tls.Serve(Wrapper));
 
 
@@ -173,7 +175,7 @@ public class Program
 
             if (addr.Length <= 0) continue;
             IPEndPoint address = IPEndPoint.Parse(addr.Trim());
-            TlsServer tls = new(address, cert) { backlog = config.Backlog, dualmode = config.DualMode, alpn = alpn, fallback = config.Fallback };
+            TlsServer tls = new(address, cert) { backlog = config.Backlog, dualmode = config.DualMode, alpn = alpns, fallback = config.Fallback };
             tasks.Add(tls.Serve(Wrapper));
 
 

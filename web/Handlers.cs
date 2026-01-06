@@ -17,6 +17,8 @@ using System.Reflection;
 using System.Text.Json.Serialization;
 using System.Runtime.CompilerServices;
 using Samicpp.Http.Http2;
+using System.Text;
+using Samicpp.Http.Http1;
 
 public readonly struct RouteConfig()
 {
@@ -597,6 +599,8 @@ public class Handlers(AppConfig app)
         else
         {
             socket.SetHeader("Content-Type", dmt);
+            socket.SetHeader("Last-Modified", $"{info.LastWriteTimeUtc}");
+
             if (info.Length < app.BigFileThreshold)
             {
                 byte[] bytes = await File.ReadAllBytesAsync(path);
@@ -605,17 +609,149 @@ public class Handlers(AppConfig app)
             }
             else
             {
+                long length = info.Length;
                 using FileStream file = File.OpenRead(path);
+                // if (socket is Http2Stream) socket.SetHeader("Content-Length", info.Length.ToString());
 
-                if (app.StreamBigFiles)
+                Debug.WriteColorLine((int)LogLevel.Verbose, $", streaming bigfile", 8);
+                socket.SetHeader("Accept-Ranges", "bytes");
+                List<(long,long)> rsend = [];
+                bool invalid = false;
+
+                if (socket.Client.Headers.TryGetValue("range", out List<string> rangehs))
                 {
-                    Debug.WriteColorLine((int)LogLevel.Verbose, $", streaming big file", 8);
-                    await socket.CloseAsync(file);
+                    foreach(string ranges in rangehs) foreach(string range in ranges.Split(','))
+                    {
+                        long start = 0;
+                        long end = 0;
+                        bool succ = true;
+
+                        string[] r = range.Replace("bytes=", "").Split('-', 2);
+
+                        if (r[0] != "" && r[1] == "")
+                        {
+                            // Debug.WriteLine((int)LogLevel.Debug,"first");
+                            succ &= long.TryParse(r[0], out start);
+                            end = length - 1;
+                        }
+                        else if (r[0] == "" && r[1] != "")
+                        {
+                            // Debug.WriteLine((int)LogLevel.Debug,"second");
+                            succ &= long.TryParse(r[1], out long suff);
+                            start = length - suff;
+                            end = length - 1;
+                        }
+                        else
+                        {
+                            // Debug.WriteLine((int)LogLevel.Debug,"both");
+                            succ &= long.TryParse(r[0], out start);
+                            succ &= long.TryParse(r[1], out end);
+                        }
+
+                        succ &= start <= end;
+                        succ &= end < length;
+                        // succ &= (end - start + 1) < int.MaxValue;
+
+                        Debug.WriteLine((int)LogLevel.Debug, $"range = {range}\n{start}..{end} for [{length}] {succ}");
+
+                        if (!succ) { invalid = true; break; }
+
+                        rsend.Add((start, end));
+                    }
+
+                    if (invalid)
+                    {
+                        socket.SetHeader("Content-Range", $"*/{length}");
+                        await ErrorHandler(socket, conf, path, 416, "Range Not Satisfiable", "invalid range", "");
+                    }
+                    else
+                    {
+                        socket.Status = 206;
+                        socket.StatusMessage = "Partial Content";
+                        
+                        if (rsend.Count == 1)
+                        {
+                            var (start, end) = rsend[0];
+                            socket.SetHeader("Content-Range", $"bytes {start}-{end}/{length}");
+                            
+                            file.Position = start;
+                            long delta = end - start + 1;
+                            byte[] chunk = new byte[app.BigFileChunkSize];
+
+                            if (delta > app.BigFileChunkSize)
+                            {
+                                int read = 0;
+                                while ((read = await file.ReadAsync(chunk)) > 0)
+                                {
+                                    await socket.WriteAsync(chunk[..read]);
+                                }
+                            }
+                            else
+                            {
+                                int read = await file.ReadAsync(chunk);
+                                await socket.WriteAsync(chunk[..read]);
+                            }
+                            
+                            await socket.WriteAsync([13, 10]);
+                        }
+                        else
+                        {
+                            string boundary = "aGVsbG8gIHlvdSEh"; // 3d6b69b2ad18
+                            // byte[] bytebound = Encoding.UTF8.GetBytes($"--{boundary}");
+                            socket.SetHeader("Content-Type", "multipart/byteranges; boundary=" + boundary);
+                            foreach (var (start, end) in rsend)
+                            {
+                                byte[] header = Encoding.UTF8.GetBytes($"--{boundary}\r\nContent-Type: {dmt}\r\nContent-Range: bytes {start}-{end}/{length}\r\n\r\n");
+                                await socket.WriteAsync(header);
+
+                                file.Position = start;
+                                long delta = end - start + 1;
+                                byte[] chunk = new byte[app.BigFileChunkSize];
+
+                                if (delta > app.BigFileChunkSize)
+                                {
+                                    int read = 0;
+                                    while ((read = await file.ReadAsync(chunk)) > 0)
+                                    {
+                                        await socket.WriteAsync(chunk[..read]);
+                                    }
+                                }
+                                else
+                                {
+                                    int read = await file.ReadAsync(chunk);
+                                    await socket.WriteAsync(chunk[..read]);
+                                }
+                                
+                                await socket.WriteAsync([13, 10]);
+                            }
+
+                            await socket.CloseAsync(Encoding.UTF8.GetBytes($"--{boundary}--\r\n"));
+                        }
+                    }
                 }
                 else
                 {
-                    Debug.WriteColorLine((int)LogLevel.Verbose, $", manually splitting up big file", 8);
                     if (socket is Http2Stream) socket.SetHeader("Content-Length", info.Length.ToString());
+                    // if (socket is Http1Socket http)
+                    // {
+                    //     // bypasses on the fly compression
+
+                    //     http.SetHeader("Content-Length", info.Length.ToString());
+                    //     await http.SendHeadAsync();
+                    //     var stream = http.socket;
+
+                    //     byte[] buff = new byte[app.BigFileChunkSize];
+                    //     int read;
+                    //     while ((read = await file.ReadAsync(buff)) != 0)
+                    //     {
+                    //         await stream.WriteAsync(buff.AsMemory(0, read));
+                    //     }
+                    //     _ = http.Allow09; // so that it doesnt early dispose
+                    // }
+                    // else 
+                    // {
+                    // }
+
                     byte[] buff = new byte[app.BigFileChunkSize];
                     int read;
                     while ((read = await file.ReadAsync(buff)) != 0)

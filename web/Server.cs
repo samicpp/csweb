@@ -330,13 +330,13 @@ public class TlsServer(IPEndPoint address, X509Certificate2 cert)
             }
             else if (alpn == "http/1.0")
             {
-                using Http1Socket sock = new(tls, end) { Allow09 = false, Allow11 = true, AllowUnknown = false };
+                using Http1Socket sock = new(tls, end) { Allow09 = false, Allow11 = false, AllowUnknown = false, Allow10 = true, };
                 sock.SetHeader("Connection", "close");
                 await handler(sock);
             }
             else if (alpn == "http/1.1")
             {
-                using Http1Socket sock = new(tls, end) { Allow09 = false, Allow10 = false, AllowUnknown = false };
+                using Http1Socket sock = new(tls, end) { Allow09 = false, Allow10 = false, AllowUnknown = false, Allow11 = true, };
                 sock.SetHeader("Connection", "close");
                 await handler(sock);
             }
