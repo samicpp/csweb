@@ -131,6 +131,7 @@ these files get read as pieces of text and then replaces certain strings with di
 - [x] add regex file matching config files
 - [ ] make cache use compressed data & allow pre compressed files
 - [ ] update/modernize request handling logic
+- [ ] support pem certs in addition to PKCS#12
 
 ### Planning
 | Version | Change | Date | Status |
