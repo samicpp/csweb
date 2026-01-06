@@ -97,7 +97,7 @@ public partial class AppConfigContext : JsonSerializerContext { }
 
 public class Program
 {
-    public static string Version { get; } = "v2.8.0";
+    public static Version Version { get; } = new(2, 8, 0, 2);
 
     static AppConfig TryConfig()
     {
@@ -139,9 +139,9 @@ public class Program
         Debug.logLevel = config.Loglevel == 0 ? null : config.Loglevel;
 
         #if AOT_BUILD
-        Debug.WriteColorLine((int)LogLevel.Init, $"csweb {Version} AOT", (52, 235, 210));
+        Debug.WriteColorLine((int)LogLevel.Init, $"csweb v{Version} AOT", (52, 235, 210));
         #else
-        Debug.WriteColorLine((int)LogLevel.Init, $"csweb {Version}", (52, 235, 210));
+        Debug.WriteColorLine((int)LogLevel.Init, $"csweb v{Version}", (52, 235, 210));
         #endif
 
         Debug.WriteColorLine((int)LogLevel.Verbose, $"cwd = {Directory.GetCurrentDirectory()}", 8);

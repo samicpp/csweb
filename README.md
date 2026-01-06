@@ -118,6 +118,9 @@ these files get read as pieces of text and then replaces certain strings with di
 - [x] add middleware support
 - [x] add protocol detection (auto choose HTTP/1.1, HTTP/2, Tls)
 - [ ] add script support
+- [ ] support partial content / byte ranges
+- [ ] support simple builtin middleware to avoid duplication
+- [ ] allow speicifying http authentication in routes config
 
 ### Enhancements
 - [X] support tls
@@ -125,17 +128,23 @@ these files get read as pieces of text and then replaces certain strings with di
 - [x] add file caching
 - [x] add regex file matching config files
 - [ ] make cache use compressed data & allow pre compressed files
+- [ ] update/modernize file handling logic
 
 ### Planning
-| Version | Change | Date | Completed |
+| Version | Change | Date | Status |
 |--|--|--|--|
-| v1.x.x | Fundamental (HTTP/1.1) | 23-10-2025 | ✓ |
-| v1.1.x | Support config | 23-10-2025 | ✓ |
-| v2.x.x | HTTP/2 | 24-10-2025 | ✓ |
-| v2.3.x | Support TLS | 24-10-2025 | ✓ |
-| v2.8.x | Protocol detection | 02-01-2026 | ✓ |
-| v2.9.x | Script support | placeholder | - |
-| v3.x.x | HTTP/3 | placeholder | - |
-| v4.x.x | Switch to self made web framework | placeholder | - |
-| v5.x.x | Build parts in C++ | placeholder | - |
+| v1.x.x.x | Fundamental (HTTP/1.1) | 23-10-2025 | ✓ |
+| v1.1.x.x | Support config | 23-10-2025 | ✓ |
+| v2.x.x.x | HTTP/2 | 24-10-2025 | ✓ |
+| v2.3.x.x | Support TLS | 24-10-2025 | ✓ |
+| v2.8.x.x | Protocol detection | 02-01-2026 | ✓ |
+| v2.11.x.x | Script support | - | - |
+| v3.x.x.x | HTTP/3 | - | - |
+| v4.x.x.x | Switch to self made web framework | - | - |
+| v5.x.x.x | Build parts in C++ | - | - |
 
+## Versioning scheme
+- `Y.x.x.x`: fundamental/major change
+- `x.Y.x.x`: added features / big changes
+- `x.x.Y.x`: minor features / big bugfix
+- `x.x.x.Y`: very small changes / smaller bugfix
