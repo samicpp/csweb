@@ -19,20 +19,35 @@ using System.Runtime.CompilerServices;
 using Samicpp.Http.Http2;
 using System.Text;
 using Samicpp.Http.Http1;
+using System.Security.Cryptography;
+using System.Buffers.Text;
 
+public readonly struct BuiltinOpt()
+{
+    [JsonPropertyName("name")] public string Name { get; init; } = null;
+
+}
 public readonly struct RouteConfig()
 {
     [JsonPropertyName("match-type")] public string MatchType { get; init; } = "host";
     [JsonPropertyName("dir")] public string Directory { get; init; } = ".";
     [JsonPropertyName("router")] public string Router { get; init; } = null;
+    [JsonPropertyName("builtin")] public BuiltinOpt? Builtin { get; init; } = null;
 
     // [JsonPropertyName("400")] public string E400 { get; init; } = null;
     [JsonPropertyName("404")] public string E404 { get; init; } = null;
     [JsonPropertyName("409")] public string E409 { get; init; } = null;
     // [JsonPropertyName("500")] public string E500 { get; init; } = null;
     // [JsonPropertyName("501")] public string E501 { get; init; } = null;
-    
 }
+// public class CacheEntry()
+// {
+//     public DateTime LastModified = DateTime.MinValue;
+//     public string ContentType = "application/octet-stream";
+//     public byte[] Bytes = [];
+//     public CompressionType? Compression = null;
+// }
+
 
 [JsonSerializable(typeof(Dictionary<string, RouteConfig>))]
 public partial class RoutesContext : JsonSerializerContext { }
@@ -82,12 +97,15 @@ public class Handlers(AppConfig app)
     {
         if (!socket.Client.IsValid)
         {
-            Debug.WriteLine((int)LogLevel.Verbose, "client is not valid");
+            Debug.WriteLine((int)LogLevel.SoftError, "# client is not valid");
             await ErrorHandler(socket, new(), "", 400);
             return;
         }
 
         Debug.WriteLine((int)LogLevel.Debug, "connection established using " + socket.Client.Version);
+
+        socket.Compression = Compression.None;
+        socket.SetHeader("Content-Encoding", "identity");
 
         if (app.UseCompression && socket.Client.Headers.TryGetValue("accept-encoding", out List<string> encoding))
         {
@@ -109,13 +127,7 @@ public class Handlers(AppConfig app)
                         socket.Compression = Compression.Brotli;
                         socket.SetHeader("Content-Encoding", "br");
                         break;
-
-                    default:
-                        socket.Compression = Compression.None;
-                        socket.SetHeader("Content-Encoding", "identity");
-                        break;
                 };
-                if (socket.Compression != Compression.None) break;
             }
             Debug.WriteLine((int)LogLevel.Debug, "using compression " + socket.Compression);
         }
@@ -453,6 +465,7 @@ public class Handlers(AppConfig app)
         // await socket.CloseAsync("file");
         // TODO: files over 500mb need to be streamed
         var info = new FileInfo(path);
+        using FileStream file = File.OpenRead(path);
         // using var str = info.OpenRead();
         var name = info.Name;
 
@@ -461,6 +474,7 @@ public class Handlers(AppConfig app)
         var dmt = MimeTypes.types.GetValueOrDefault(ext) ?? "application/octet-stream";
         // string fullhost = $"{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath(socket.Client.Path)}";
         string fullhost = $"[{socket.Client.VersionString}]{(socket.IsHttps ? "https" : "http")}://{socket.Client.Host}{CleanPath("/" + socket.Client.Path)}";
+        long length = info.Length;
 
 
         if (name.EndsWith(".blank"))
@@ -471,7 +485,7 @@ public class Handlers(AppConfig app)
             Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {socket.Status} blank", 2);
         }
         #if !AOT_BUILD
-        else if (netPluginExt.IsMatch(name))
+        else if (app.AllowPlugins && netPluginExt.IsMatch(name))
         {
             try
             {
@@ -580,32 +594,32 @@ public class Handlers(AppConfig app)
                 await Handle(socket, conf, utext.Trim(), ninfo, normalPath);
             }
         }
-        else if (name.EndsWith(".br") || name.EndsWith(".gz"))
-        {
-            var dts = name.Split(".");
-            var last = dts.ElementAtOrDefault(dts.Length - 2) ?? "";
-            var enc = dts.Last();
-
-            dmt = MimeTypes.types.GetValueOrDefault(last) ?? "application/octet-stream";
-            socket.Compression = Compression.None;
-            socket.SetHeader("Content-Encoding", enc == "br" ? "br" : "gzip");
-
-            socket.SetHeader("Content-Type", dmt);
-            byte[] bytes = await File.ReadAllBytesAsync(path);
-            await socket.CloseAsync(bytes);
-            cache[fullhost] = (info.LastWriteTime, dmt, bytes, enc == "br" ? Compression.Brotli : Compression.Gzip);
-            Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {socket.Status} '{path}' ({bytes.Length})", 2);
-        }
         else
         {
             socket.SetHeader("Content-Type", dmt);
             socket.SetHeader("Last-Modified", $"{info.LastWriteTimeUtc}");
             socket.SetHeader("Accept-Ranges", "bytes");
+            
+            var etag = SHA256.HashData(Encoding.UTF8.GetBytes($"{info}@{info.LastWriteTimeUtc}"));
+            socket.SetHeader("ETag", Convert.ToBase64String(etag));
 
-            using FileStream file = File.OpenRead(path);
-            long length = info.Length;
             List<(long,long)> rsend = [];
             bool invalid = false;
+
+            Compression? precompressed = null;
+            if (name.EndsWith(".br") || name.EndsWith(".gz"))
+            {
+                var dts = name.Split(".");
+                var last = dts.ElementAtOrDefault(dts.Length - 2) ?? "";
+                var enc = dts.Last();
+
+                dmt = MimeTypes.types.GetValueOrDefault(last) ?? "application/octet-stream";
+                socket.Compression = Compression.None;
+                socket.SetHeader("Content-Encoding", enc == "br" ? "br" : "gzip");
+
+                socket.SetHeader("Content-Type", dmt);
+                precompressed = enc == "br" ? Compression.Brotli : Compression.Gzip;
+            }
 
             if (app.AllowRanged && socket.Client.Headers.TryGetValue("range", out List<string> rangehs))
             {
@@ -740,7 +754,7 @@ public class Handlers(AppConfig app)
                 byte[] bytes = new byte[(int)length];
                 await file.ReadExactlyAsync(bytes);
                 await socket.CloseAsync(bytes);
-                cache[fullhost] = (info.LastWriteTime, dmt, bytes, null);
+                if (app.CacheFiles) cache[fullhost] = (info.LastWriteTime, dmt, bytes, precompressed);
                 Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {socket.Status} '{path}' ({length})", 2);
             }
             else
