@@ -100,7 +100,7 @@ public partial class AppConfigContext : JsonSerializerContext { }
 
 public class Program
 {
-    public static Version Version { get; } = new(2, 8, 2, 2);
+    public static Version Version { get; } = new(2, 8, 3, 0);
 
     static AppConfig TryConfig()
     {
@@ -124,7 +124,7 @@ public class Program
     }
     
     static readonly AppConfig config = TryConfig();
-    readonly static Handlers hands = new(config);
+    public readonly static Handlers hands = new(config);
 
     public static async Task Main()
     {

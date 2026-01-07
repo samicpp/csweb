@@ -22,11 +22,7 @@ using Samicpp.Http.Http1;
 using System.Security.Cryptography;
 using System.Buffers.Text;
 
-public readonly struct BuiltinOpt()
-{
-    [JsonPropertyName("name")] public string Name { get; init; } = null;
 
-}
 public readonly struct RouteConfig()
 {
     [JsonPropertyName("match-type")] public string MatchType { get; init; } = "host";
@@ -39,6 +35,8 @@ public readonly struct RouteConfig()
     [JsonPropertyName("409")] public string E409 { get; init; } = null;
     // [JsonPropertyName("500")] public string E500 { get; init; } = null;
     // [JsonPropertyName("501")] public string E501 { get; init; } = null;
+
+    [JsonPropertyName("auth")] public string Auth { get; init; } = null;
 }
 // public class CacheEntry()
 // {
@@ -245,7 +243,13 @@ public class Handlers(AppConfig app)
         // int e = 0;
         // int a = 1 / e;
 
-        if (routerPath != null)
+        bool canContinue = true;
+        if (conf.Auth != null)
+        {
+            canContinue = await Builtin.Authenticate(socket, mfullhost, conf.Auth);
+        }
+
+        if (canContinue && routerPath != null)
         {
             FileSystemInfo info = new FileInfo(routerPath);
             if (!info.Exists) info = new DirectoryInfo(routerPath);
@@ -280,7 +284,7 @@ public class Handlers(AppConfig app)
 
             if (!cached) await Handle(socket, conf, routerPath, info, fullPath);
         }
-        else
+        else if (canContinue)
         {
             FileSystemInfo info = new FileInfo(fullPath);
             if (!info.Exists) info = new DirectoryInfo(fullPath);
@@ -465,7 +469,6 @@ public class Handlers(AppConfig app)
         // await socket.CloseAsync("file");
         // TODO: files over 500mb need to be streamed
         var info = new FileInfo(path);
-        using FileStream file = File.OpenRead(path);
         // using var str = info.OpenRead();
         var name = info.Name;
 
@@ -483,6 +486,33 @@ public class Handlers(AppConfig app)
             socket.StatusMessage = "No Content";
             await socket.CloseAsync();
             Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {socket.Status} blank", 2);
+        }
+        else if (name.EndsWith(".builtin.json"))
+        {
+            Debug.WriteLine((int)LogLevel.Debug, "using internal handler");
+
+            var bytes = await File.ReadAllBytesAsync(path);
+            BuiltinOpt? nopt = null;
+            
+            try
+            {
+                nopt = JsonSerializer.Deserialize(bytes, BuiltinOptContext.Default.BuiltinOpt);
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine((int)LogLevel.Debug, $"json error {e}");
+            }
+
+            if (nopt != null)
+            {
+                var opt = (BuiltinOpt)nopt;
+                await Builtin.AutoHandle(socket, conf, path, normalPath, opt);
+                Debug.WriteColorLine((int)LogLevel.Info, $"\e[2m↑ {socket.Status} builtin handler '{opt.Name}'", 2);
+            }
+            else 
+            {
+                await ErrorHandler(socket, conf, path, 500, "Internal Error", "invalid json", "");
+            }
         }
         #if !AOT_BUILD
         else if (app.AllowPlugins && netPluginExt.IsMatch(name))
@@ -518,7 +548,7 @@ public class Handlers(AppConfig app)
         }
         #else
         else if (netPluginExt.IsMatch(name))
-        {
+        {            
             await ErrorHandler(socket, conf, path, 501);
         }
         #endif
@@ -603,6 +633,7 @@ public class Handlers(AppConfig app)
             var etag = SHA256.HashData(Encoding.UTF8.GetBytes($"{info}@{info.LastWriteTimeUtc}"));
             socket.SetHeader("ETag", Convert.ToBase64String(etag));
 
+            using FileStream file = File.OpenRead(path);
             List<(long,long)> rsend = [];
             bool invalid = false;
 
