@@ -6,6 +6,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -17,6 +18,16 @@ public readonly struct BuiltinOpt()
 {
     [JsonPropertyName("name")] public string Name { get; init; } = null;
     [JsonPropertyName("headers")] public Dictionary<string, string> Headers { get; init; } = [];
+
+    // file
+    [JsonPropertyName("file-path")] public string FilePath { get; init; } = "status";
+
+    // error
+    [JsonPropertyName("error-code")] public int ErrorCode { get; init; } = 418;
+    [JsonPropertyName("error-status")] public string ErrorStatus { get; init; } = "status";
+    [JsonPropertyName("error-message")] public string ErrorMessage { get; init; } = "message";
+    [JsonPropertyName("error-debug")] public string ErrorDebug { get; init; } = "";
+
 
     // auth // why would you use this instead of routes level auth
     [JsonPropertyName("auth-realm")] public string AuthRealm { get; init; } = null;
@@ -93,6 +104,21 @@ public static class Builtin
             
             case "sserelay":
                 await SseRelay(http, opt);
+                break;
+            
+            case "dualws":
+                await DualWs(http, opt);
+                break;
+            
+            case "file":
+                FileSystemInfo info = new FileInfo(path);
+                if (!info.Exists) info = new DirectoryInfo(path);
+                if (info.Exists) info = info.ResolveLinkTarget(true) ?? info;
+                await Program.hands.Handle(http, conf, opt.FilePath, info, path);
+                break;
+
+            case "error":
+                await Program.hands.ErrorHandler(http, conf, path, opt.ErrorCode, opt.ErrorStatus, opt.ErrorMessage, opt.ErrorDebug);
                 break;
             
             default:

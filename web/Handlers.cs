@@ -248,6 +248,11 @@ public class Handlers(AppConfig app)
         {
             canContinue = await Builtin.Authenticate(socket, mfullhost, conf.Auth);
         }
+        if (conf.Builtin != null)
+        {
+            canContinue = false;
+            await Builtin.AutoHandle(socket, conf, routerPath ?? fullPath, fullPath, (BuiltinOpt)conf.Builtin);
+        }
 
         if (canContinue && routerPath != null)
         {
