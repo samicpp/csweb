@@ -200,7 +200,7 @@ public static class Builtin
         {
             http.Status = 426;
             http.StatusMessage = "Upggrade Required";
-            http.Close("websocket enpoint");
+            await http.CloseAsync("websocket enpoint");
         }
     }
 
@@ -260,7 +260,7 @@ public static class Builtin
         {
             http.Status = 426;
             http.StatusMessage = "Upggrade Required";
-            http.Close("websocket enpoint");
+            await http.CloseAsync("websocket enpoint");
         }
     }
 
@@ -271,7 +271,8 @@ public static class Builtin
         var client = http.Client;
         string room = opt.SseRelayGroup;
 
-        if (!clients.ContainsKey(room)) msgs[room] = [];
+        Debug.WriteLine((int)LogLevel.Debug, $"[SseRelay] room = {room}");
+        if (!msgs.ContainsKey(room)) msgs[room] = [];
         while (!client.HeadersComplete) client = await http.ReadClientAsync();
 
         if (client.Headers.TryGetValue("accept", out var accept) && accept[0] == "text/event-stream")
@@ -279,18 +280,18 @@ public static class Builtin
             http.SetHeader("Content-Type", "text/event-stream");
             int last = 0;
             if (client.Headers.TryGetValue("last-event-id", out var l)) last = Convert.ToInt32(l[0]) + 1;
-            http.Write("retry: 1000\n\n");
+            await http.WriteAsync("retry: 1000\n\n");
 
             while (true)
             {
-                await Task.Delay(opt.SseRelayUpdateRate ?? 100);
-
-                // Log("message length " + msgs.Count);
                 if (last < msgs[room].Count)
                 {
-                    http.Write($"id: {last}\nevent: message\ndata: {msgs[room][last]}\n\n");
+                    Debug.WriteLine((int)LogLevel.Debug, $"[SseRelay] new msg {last}");
+                    await http.WriteAsync($"id: {last}\nevent: message\ndata: {msgs[room][last]}\n\n");
                     last++;
                 }
+
+                await Task.Delay(opt.SseRelayUpdateRate ?? 100);
             }
         }
         else if (client.Method != "GET")
@@ -326,18 +327,102 @@ public static class Builtin
                     var enc = Convert.ToBase64String(body);
                     msgs[room] = msgs[room].Add(enc);
                     await http.CloseAsync(opt.SseRelaySuccess ?? "[true]");
+                    Debug.WriteLine((int)LogLevel.Debug, $"[SseRelay] recv msg {body}");
                 }
                 finally
                 {
                     rlock.Release();
                 }
-
-                // Log("new length " + msgs.Count);
             }
         }
         else
         {
             await http.CloseAsync(opt.SseRelayfail ?? "[false]");
+        }
+    }
+
+    static WebSocket que = null;
+    public static async Task DualWs(IDualHttpSocket http, BuiltinOpt opt)
+    {
+        if (http.Client.Headers.TryGetValue("upgrade", out List<string> upgrade) && upgrade[0] == "websocket")
+        {
+            using WebSocket ws = await http.WebSocketAsync();
+            bool done = false;
+            
+            if (que == null)
+            {
+                que = ws;
+            }
+            else
+            {
+                WebSocket other = que;
+                que = null;
+
+                _ = Task.Run(async () =>
+                {
+                    while (!done)
+                    {
+                        List<WebSocketFrame> frames = await ws.IncomingAsync();
+
+                        foreach (var frame in frames)
+                        {
+                            switch (frame.type)
+                            {
+                                case WebSocketFrameType.Text:
+                                case WebSocketFrameType.Binary:
+                                case WebSocketFrameType.Continuation:
+                                    await other.SendTextAsync(frame.GetPayload());
+                                    break;
+                                
+                                case WebSocketFrameType.Ping:
+                                    await ws.SendPongAsync(frame.GetPayload());
+                                    break;
+                                
+                                case WebSocketFrameType.ConnectionClose:
+                                    await ws.SendCloseConnectionAsync(frame.GetPayload());
+                                    await other.SendCloseConnectionAsync(frame.GetPayload());
+                                    done = true;
+                                    break;
+                            }
+                        }
+                    }
+                });
+
+                while (!done)
+                {
+                    List<WebSocketFrame> frames = await other.IncomingAsync();
+
+                    foreach (var frame in frames)
+                    {
+                        switch (frame.type)
+                        {
+                            case WebSocketFrameType.Text:
+                            case WebSocketFrameType.Binary:
+                            case WebSocketFrameType.Continuation:
+                                await ws.SendTextAsync(frame.GetPayload());
+                                break;
+                            
+                            case WebSocketFrameType.Ping:
+                                await other.SendPongAsync(frame.GetPayload());
+                                break;
+                            
+                            case WebSocketFrameType.ConnectionClose:
+                                await ws.SendCloseConnectionAsync(frame.GetPayload());
+                                await other.SendCloseConnectionAsync(frame.GetPayload());
+                                done = true;
+                                break;
+                        }
+                    }
+                }
+            }
+            
+            
+        }
+        else
+        {
+            http.Status = 426;
+            http.StatusMessage = "Upggrade Required";
+            await http.CloseAsync("websocket enpoint");
         }
     }
 }

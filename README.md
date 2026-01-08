@@ -123,6 +123,7 @@ these files get read as pieces of text and then replaces certain strings with di
 - [ ] add script support
 - [ ] overhaul logging & allowing logserver and reports
 - [ ] overhaul routes config making it more powerfull
+- [ ] add configurable conditions in routes
 
 ### Enhancements
 - [X] support tls
